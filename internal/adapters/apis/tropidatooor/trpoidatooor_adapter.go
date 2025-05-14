@@ -2,6 +2,8 @@ package tropidatooor
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -19,7 +21,40 @@ func NewTropidatooorAdapter(baseURL string) *TropidatooorAdapter {
 	}
 }
 
+// Ping sends a ping request to the Tropidatooor API with context
+func (t *TropidatooorAdapter) Ping(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", t.baseURL+"/ping", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := t.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to ping Tropidatooor API: %s", resp.Status)
+	}
+	return nil
+}
+
 // GetMountPath retrieves the mount path from the Tropidatooor API
 func (t *TropidatooorAdapter) GetMountPath(ctx context.Context) (string, error) {
-	return "", nil
+	req, err := http.NewRequestWithContext(ctx, "GET", t.baseURL+"/mount-path", nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := t.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get mount path from Tropidatooor API: %s", resp.Status)
+	}
+	var mountPath string
+	if err := json.NewDecoder(resp.Body).Decode(&mountPath); err != nil {
+		return "", err
+	}
+	return mountPath, nil
 }
