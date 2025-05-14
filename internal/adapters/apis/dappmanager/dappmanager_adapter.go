@@ -1,22 +1,13 @@
 package dappmanager
 
 import (
+	"clients-test/internal/application/domain"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
-)
-
-// Network represents the network type
-type Network string
-
-const (
-	Mainnet Network = "mainnet"
-	Hoodi   Network = "hoodi"
-	Gnosis  Network = "gnosis"
-	Lukso   Network = "lukso"
 )
 
 // DappManagerAdapter is the adapter to interact with the DappManager API
@@ -89,7 +80,7 @@ type StakerConfigGetMinimal struct {
 }
 
 // GetStakerConfig retrieves the staker configuration from the DappManager API with context
-func (d *DappManagerAdapter) GetStakerConfig(ctx context.Context, network Network) (StakerConfigGetMinimal, error) {
+func (d *DappManagerAdapter) GetStakerConfig(ctx context.Context, network string) (StakerConfigGetMinimal, error) {
 	url := d.baseURL + "/stakerConfigGet"
 	payload := fmt.Sprintf(`{"network": "%s"}`, network)
 
@@ -122,28 +113,10 @@ func (d *DappManagerAdapter) GetStakerConfig(ctx context.Context, network Networ
 	return result, nil
 }
 
-// StakerConfigSetRequest represents the request body for setting staker config
-type StakerConfigSetRequest struct {
-	Network           Network  `json:"network"`
-	ExecutionDnpName  *string  `json:"executionDnpName"`
-	ConsensusDnpName  *string  `json:"consensusDnpName"`
-	MevBoostDnpName   *string  `json:"mevBoostDnpName"`
-	Relays            []string `json:"relays"`
-	Web3SignerDnpName *string  `json:"web3signerDnpName"`
-}
-
 // SetStakerConfig sets the staker configuration on the DappManager API with context
-func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, network Network, executionDnpName, consensusDnpName, mevBoostDnpName, web3signerDnpName *string, relays []string) error {
+func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, stakerClients domain.StakerClients) error {
 	url := d.baseURL + "/stakerConfigSet"
-	requestBody := StakerConfigSetRequest{
-		Network:           network,
-		ExecutionDnpName:  executionDnpName,
-		ConsensusDnpName:  consensusDnpName,
-		MevBoostDnpName:   mevBoostDnpName,
-		Relays:            relays,
-		Web3SignerDnpName: web3signerDnpName,
-	}
-	jsonBytes, err := json.Marshal(requestBody)
+	jsonBytes, err := json.Marshal(stakerClients)
 	if err != nil {
 		return err
 	}
