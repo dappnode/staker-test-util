@@ -146,7 +146,7 @@ func (b *BeaconchainAdapter) GetValidatorLiveness(ctx context.Context, indexes [
 }
 
 // GetValidatorsIndexes retrieves the validator index for each given pubkey with status active_ongoing
-func (b *BeaconchainAdapter) GetValidatorsIndexes(ctx context.Context, pubkeys []string) (map[string]string, error) {
+func (b *BeaconchainAdapter) GetValidatorsIndexes(ctx context.Context, pubkeys []string) ([]string, error) {
 	url := fmt.Sprintf("%s/eth/v1/beacon/states/finalized/validators", b.beaconChainUrl)
 	requestBody := struct {
 		IDs      []string `json:"ids"`
@@ -187,9 +187,9 @@ func (b *BeaconchainAdapter) GetValidatorsIndexes(ctx context.Context, pubkeys [
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
-	indexMap := make(map[string]string)
-	for _, v := range result.Data {
-		indexMap[v.Validator.Pubkey] = v.Index
+	indexes := make([]string, len(result.Data))
+	for i, v := range result.Data {
+		indexes[i] = v.Index
 	}
-	return indexMap, nil
+	return indexes, nil
 }

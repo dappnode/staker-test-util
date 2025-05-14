@@ -43,28 +43,32 @@ func NewEnvEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *br
 // 3. Installs the package via dappmanager.
 // 4. Retrieves the mount path from tropidatooor.
 // 5. Remounts the docker volume for the execution client.
-func (e *EnvEnsurerAdapter) EnsureEnvironment(ctx context.Context, ipfsHash, dnpName string) (mountId string, err error) {
+func (e *EnvEnsurerAdapter) EnsureEnvironment(ctx context.Context, ipfsHash, dnpName string) (mountId string, indexes []string, err error) {
 	pubkeys, err := e.Brain.GetValidatorsPubkeys(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch validators from brain: %v", err)
+		return "", nil, fmt.Errorf("failed to fetch validators from brain: %v", err)
 	}
 	if len(pubkeys) == 0 {
-		return "", fmt.Errorf("at least 1 validator must be loaded to be able to run the test")
+		return "", nil, fmt.Errorf("at least 1 validator must be loaded to be able to run the test")
+	}
+	indexes, err = e.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get validators indexes: %w", err)
 	}
 	if err := e.setStakerConfigForDnp(ctx, dnpName); err != nil {
-		return "", fmt.Errorf("failed to set staker config for DNP: %w", err)
+		return "", nil, fmt.Errorf("failed to set staker config for DNP: %w", err)
 	}
 	if err := e.DappManager.PackageInstall(ctx, dnpName, ipfsHash); err != nil {
-		return "", fmt.Errorf("failed to install package: %w", err)
+		return "", nil, fmt.Errorf("failed to install package: %w", err)
 	}
 	mountPath, mountId, err := e.Tropidatooor.GetMountPath(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to get mount path: %w", err)
+		return "", nil, fmt.Errorf("failed to get mount path: %w", err)
 	}
 	if err := e.remountExecutionVolume(ctx, mountPath); err != nil {
-		return "", fmt.Errorf("failed to remount execution volume: %w", err)
+		return "", nil, fmt.Errorf("failed to remount execution volume: %w", err)
 	}
-	return mountId, nil
+	return mountId, indexes, nil
 }
 
 func (e *EnvEnsurerAdapter) setStakerConfigForDnp(ctx context.Context, dnpName string) error {
