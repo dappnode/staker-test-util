@@ -11,4 +11,9 @@
 
 
 todo:
-- Add context to be able to cancel tasks
+- Implement config with cli args
+
+
+now implement the test executor adapter. It will use execution, dappmanager, beaconchain, brain and tropidatooor adapters
+
+It will
