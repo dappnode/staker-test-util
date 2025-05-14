@@ -24,9 +24,8 @@ func NewTestExecutorAdapter(execution *execution.ExecutionAdapter, brain *brain.
 	}
 }
 
-// ExecuteTest waits for execution sync, gets validator indexes, and checks liveness
-func (t *TestExecutorAdapter) ExecuteTest(ctx context.Context) error {
-	// 1. Wait until execution is synced
+// waitForExecutionSync waits until the execution client is synced or times out
+func (t *TestExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 	maxTries := 60
 	for i := 0; i < maxTries; i++ {
 		synced, err := t.Execution.GetIsSyncing(ctx)
@@ -34,35 +33,21 @@ func (t *TestExecutorAdapter) ExecuteTest(ctx context.Context) error {
 			return fmt.Errorf("failed to check execution sync: %w", err)
 		}
 		if !synced {
-			break
+			return nil
 		}
 		if i == maxTries-1 {
 			return fmt.Errorf("execution client did not sync after %d attempts", maxTries)
 		}
 		time.Sleep(3 * time.Second)
 	}
+	return nil
+}
 
-	// 2. Get validator pubkeys and indexes
-	pubkeys, err := t.Brain.GetValidatorsPubkeys(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get validator pubkeys: %w", err)
+// waitForValidatorLiveness waits for all validators to become live up to 3 epochs
+func (t *TestExecutorAdapter) waitForValidatorLiveness(ctx context.Context, indexes []string) error {
+	if len(indexes) == 0 {
+		return fmt.Errorf("no validator indexes provided")
 	}
-	if len(pubkeys) == 0 {
-		return fmt.Errorf("no validator pubkeys found")
-	}
-	indexMap, err := t.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
-	if err != nil {
-		return fmt.Errorf("failed to get validator indexes: %w", err)
-	}
-	if len(indexMap) == 0 {
-		return fmt.Errorf("no validator indexes found for pubkeys")
-	}
-	var indexes []string
-	for _, idx := range indexMap {
-		indexes = append(indexes, idx)
-	}
-
-	// 3. Wait for liveness up to 3 epochs (19m12s)
 	maxEpochs := 3
 	epochDuration := 6*time.Minute + 24*time.Second // 384 seconds
 	for epoch := 0; epoch < maxEpochs; epoch++ {
@@ -84,6 +69,17 @@ func (t *TestExecutorAdapter) ExecuteTest(ctx context.Context) error {
 			return fmt.Errorf("validators did not become live after %d epochs", maxEpochs)
 		}
 		time.Sleep(epochDuration)
+	}
+	return nil
+}
+
+// ExecuteTest runs both sync and liveness checks in sequence
+func (t *TestExecutorAdapter) ExecuteTest(ctx context.Context, indexes []string) error {
+	if err := t.waitForExecutionSync(ctx); err != nil {
+		return err
+	}
+	if err := t.waitForValidatorLiveness(ctx, indexes); err != nil {
+		return err
 	}
 	return nil
 }

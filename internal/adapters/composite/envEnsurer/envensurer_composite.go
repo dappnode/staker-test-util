@@ -46,10 +46,7 @@ func NewEnvEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *br
 }
 
 // EnsureEnvironment validates the environment and prepares it for testing.
-// Steps:
-// 1. Ensures at least one validator is loaded in brain.
-// 2. Sets the staker config in dappmanager based on dnpName type.
-// 3. Installs the package via dappmanager.
+// It sets the staker config, installs the package, stops the container, mounts the NFS, and starts the container.
 func (e *EnvEnsurerAdapter) EnsureEnvironment(ctx context.Context, ipfsHash string, config domain.TestConfig) error {
 	if err := e.DappManager.SetStakerConfig(ctx, config.StakerClients); err != nil {
 		return fmt.Errorf("failed to set staker config for DNP: %w", err)
