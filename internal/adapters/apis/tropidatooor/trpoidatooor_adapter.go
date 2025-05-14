@@ -38,23 +38,26 @@ func (t *TropidatooorAdapter) Ping(ctx context.Context) error {
 	return nil
 }
 
-// GetMountPath retrieves the mount path from the Tropidatooor API
-func (t *TropidatooorAdapter) GetMountPath(ctx context.Context) (string, error) {
+// GetMountPath retrieves the mount path and mount ID from the Tropidatooor API
+func (t *TropidatooorAdapter) GetMountPath(ctx context.Context) (mountPath string, mountId string, err error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", t.baseURL+"/mount-path", nil)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	resp, err := t.client.Do(req)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get mount path from Tropidatooor API: %s", resp.Status)
+		return "", "", fmt.Errorf("failed to get mount path from Tropidatooor API: %s", resp.Status)
 	}
-	var mountPath string
-	if err := json.NewDecoder(resp.Body).Decode(&mountPath); err != nil {
-		return "", err
+	var respObj struct {
+		MountPath string `json:"mountPath"`
+		MountId   string `json:"mountId"`
 	}
-	return mountPath, nil
+	if err := json.NewDecoder(resp.Body).Decode(&respObj); err != nil {
+		return "", "", err
+	}
+	return respObj.MountPath, respObj.MountId, nil
 }
