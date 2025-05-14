@@ -2,6 +2,7 @@ package execution
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -23,8 +24,8 @@ func NewExecutionAdapter(baseURL string) *ExecutionAdapter {
 	}
 }
 
-// GetIsSyncing retrieves the syncing status from the execution client
-func (e *ExecutionAdapter) GetIsSyncing() (bool, error) {
+// GetIsSyncing retrieves the syncing status from the execution client with context
+func (e *ExecutionAdapter) GetIsSyncing(ctx context.Context) (bool, error) {
 	url := e.baseURL
 	// JSON-RPC request body for eth_syncing
 	body := map[string]interface{}{
@@ -38,7 +39,7 @@ func (e *ExecutionAdapter) GetIsSyncing() (bool, error) {
 		return false, err
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonBytes))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBytes))
 	if err != nil {
 		return false, err
 	}

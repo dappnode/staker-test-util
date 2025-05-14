@@ -1,6 +1,7 @@
 package brain
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -22,10 +23,14 @@ func NewBrainAdapter(brainUrl string) *BrainAdapter {
 	}
 }
 
-// GetValidatorsPubkeys fetches the validator public keys from the brain service
-func (b *BrainAdapter) GetValidatorsPubkeys() ([]string, error) {
+// GetValidatorsPubkeys fetches the validator public keys from the brain service with context
+func (b *BrainAdapter) GetValidatorsPubkeys(ctx context.Context) ([]string, error) {
 	url := fmt.Sprintf("%s/v0/brain/validators?tag=solo&format=pubkey", b.brainUrl)
-	resp, err := b.client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := b.client.Do(req)
 	if err != nil {
 		return nil, err
 	}

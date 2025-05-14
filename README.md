@@ -8,3 +8,7 @@
 - TestExecutor
   - 
 - EnvironmentCleaner
+
+
+todo:
+- Add context to be able to cancel tasks

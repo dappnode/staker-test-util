@@ -1,6 +1,7 @@
 package dappmanager
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,27 +33,30 @@ func NewDappManagerAdapter(baseURL string) *DappManagerAdapter {
 	}
 }
 
-// Ping sends a ping request to the DappManager API
-func (d *DappManagerAdapter) Ping() error {
-	resp, err := d.client.Get(d.baseURL + "/ping")
+// Ping sends a ping request to the DappManager API with context
+func (d *DappManagerAdapter) Ping(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", d.baseURL+"/ping", nil)
 	if err != nil {
 		return err
 	}
+	resp, err := d.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("ping failed: %s", resp.Status)
 	}
-	defer resp.Body.Close()
-
 	return nil
 }
 
-// PackageInstall installs a package on the dappnode
-func (d *DappManagerAdapter) PackageInstall(dnpName, versionOrIpfsHash string) error {
+// PackageInstall installs a package on the dappnode with context
+func (d *DappManagerAdapter) PackageInstall(ctx context.Context, dnpName, versionOrIpfsHash string) error {
 	url := d.baseURL + "/packageInstall"
 	payload := fmt.Sprintf(`{"name": "%s", "version": "%s", "userSettings": {}, "options": {"BYPASS_CORE_RESTRICTION": true, "BYPASS_SIGNED_RESTRICTION": true}}`, dnpName, versionOrIpfsHash)
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -84,12 +88,12 @@ type StakerConfigGetMinimal struct {
 	MevBoost         *stakerItemMinimal  `json:"mevBoost,omitempty"`
 }
 
-// GetStakerConfig retrieves the staker configuration from the DappManager API
-func (d *DappManagerAdapter) GetStakerConfig(network Network) (StakerConfigGetMinimal, error) {
+// GetStakerConfig retrieves the staker configuration from the DappManager API with context
+func (d *DappManagerAdapter) GetStakerConfig(ctx context.Context, network Network) (StakerConfigGetMinimal, error) {
 	url := d.baseURL + "/stakerConfigGet"
 	payload := fmt.Sprintf(`{"network": "%s"}`, network)
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(payload))
 	if err != nil {
 		return StakerConfigGetMinimal{}, err
 	}
@@ -128,8 +132,8 @@ type StakerConfigSetRequest struct {
 	Web3SignerDnpName *string  `json:"web3signerDnpName"`
 }
 
-// SetStakerConfig sets the staker configuration on the DappManager API
-func (d *DappManagerAdapter) SetStakerConfig(network Network, executionDnpName, consensusDnpName, mevBoostDnpName, web3signerDnpName *string, relays []string) error {
+// SetStakerConfig sets the staker configuration on the DappManager API with context
+func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, network Network, executionDnpName, consensusDnpName, mevBoostDnpName, web3signerDnpName *string, relays []string) error {
 	url := d.baseURL + "/stakerConfigSet"
 	requestBody := StakerConfigSetRequest{
 		Network:           network,
@@ -144,7 +148,7 @@ func (d *DappManagerAdapter) SetStakerConfig(network Network, executionDnpName, 
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonBytes)))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonBytes)))
 	if err != nil {
 		return err
 	}
@@ -162,8 +166,8 @@ func (d *DappManagerAdapter) SetStakerConfig(network Network, executionDnpName, 
 	return nil
 }
 
-// removePackage removes a package from the dappnode
-func (d *DappManagerAdapter) removePackage(dnpName string, deleteVolumes *bool) error {
+// removePackage removes a package from the dappnode with context
+func (d *DappManagerAdapter) removePackage(ctx context.Context, dnpName string, deleteVolumes *bool) error {
 	url := d.baseURL + "/packageRemove"
 	// Build request body
 	type removeBody struct {
@@ -179,7 +183,7 @@ func (d *DappManagerAdapter) removePackage(dnpName string, deleteVolumes *bool) 
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonBytes)))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonBytes)))
 	if err != nil {
 		return err
 	}
@@ -203,11 +207,11 @@ type installedPackageMinimal struct {
 	IsCore  bool   `json:"isCore"`
 }
 
-// getPackages retrieves the list of installed packages from the DappManager API
-func (d *DappManagerAdapter) getPackages() ([]installedPackageMinimal, error) {
+// getPackages retrieves the list of installed packages from the DappManager API with context
+func (d *DappManagerAdapter) getPackages(ctx context.Context) ([]installedPackageMinimal, error) {
 	url := d.baseURL + "/packagesGet"
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -244,21 +248,19 @@ func (d *DappManagerAdapter) getPackages() ([]installedPackageMinimal, error) {
 	return result, nil
 }
 
-// RemoveNonCorePackages removes all non-core packages from the Dappnode to clean up the system
-func (d *DappManagerAdapter) RemoveNonCorePackages() error {
-	packages, err := d.getPackages()
+// RemoveNonCorePackages removes all non-core packages from the Dappnode to clean up the system with context
+func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) error {
+	packages, err := d.getPackages(ctx)
 	if err != nil {
 		return err
 	}
 	for _, pkg := range packages {
 		if !pkg.IsCore {
-			// Skip uninstalling web3signer and mev boost because there are no variants of them
-			// as there are for execution and consensus clients
 			if strings.Contains(pkg.DnpName, "web3signer") || strings.Contains(pkg.DnpName, "mev-boost") {
 				continue
 			}
 			deleteVolumes := true
-			err := d.removePackage(pkg.DnpName, &deleteVolumes)
+			err := d.removePackage(ctx, pkg.DnpName, &deleteVolumes)
 			if err != nil {
 				return fmt.Errorf("failed to remove package %s: %w", pkg.DnpName, err)
 			}
