@@ -6,8 +6,16 @@ import (
 	"io"
 	"net/http"
 	"strings"
+)
 
-	"clients-test/internal/application/domain"
+// Network represents the network type
+type Network string
+
+const (
+	Mainnet Network = "mainnet"
+	Hoodi   Network = "hoodi"
+	Gnosis  Network = "gnosis"
+	Lukso   Network = "lukso"
 )
 
 // DappManagerAdapter is the adapter to interact with the DappManager API
@@ -62,44 +70,68 @@ func (d *DappManagerAdapter) PackageInstall(dnpName, versionOrIpfsHash string) e
 	return nil
 }
 
+// stakerItemMinimal represents the minimal staker item info needed
+type stakerItemMinimal struct {
+	DnpName    string `json:"dnpName"`
+	IsSelected bool   `json:"isSelected"`
+}
+
+// StakerConfigGetMinimal represents the minimal staker config info needed
+type StakerConfigGetMinimal struct {
+	ExecutionClients []stakerItemMinimal `json:"executionClients"`
+	ConsensusClients []stakerItemMinimal `json:"consensusClients"`
+	Web3Signer       stakerItemMinimal   `json:"web3Signer"`
+	MevBoost         *stakerItemMinimal  `json:"mevBoost,omitempty"`
+}
+
 // GetStakerConfig retrieves the staker configuration from the DappManager API
-func (d *DappManagerAdapter) GetStakerConfig(network domain.Network) (domain.StakerConfigGetMinimal, error) {
+func (d *DappManagerAdapter) GetStakerConfig(network Network) (StakerConfigGetMinimal, error) {
 	url := d.baseURL + "/stakerConfigGet"
 	payload := fmt.Sprintf(`{"network": "%s"}`, network)
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
 	if err != nil {
-		return domain.StakerConfigGetMinimal{}, err
+		return StakerConfigGetMinimal{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		return domain.StakerConfigGetMinimal{}, err
+		return StakerConfigGetMinimal{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return domain.StakerConfigGetMinimal{}, fmt.Errorf("get staker config failed: %s", resp.Status)
+		return StakerConfigGetMinimal{}, fmt.Errorf("get staker config failed: %s", resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return domain.StakerConfigGetMinimal{}, err
+		return StakerConfigGetMinimal{}, err
 	}
 
-	var result domain.StakerConfigGetMinimal
+	var result StakerConfigGetMinimal
 	err = json.Unmarshal(bodyBytes, &result)
 	if err != nil {
-		return domain.StakerConfigGetMinimal{}, err
+		return StakerConfigGetMinimal{}, err
 	}
 	return result, nil
 }
 
+// StakerConfigSetRequest represents the request body for setting staker config
+type StakerConfigSetRequest struct {
+	Network           Network  `json:"network"`
+	ExecutionDnpName  *string  `json:"executionDnpName"`
+	ConsensusDnpName  *string  `json:"consensusDnpName"`
+	MevBoostDnpName   *string  `json:"mevBoostDnpName"`
+	Relays            []string `json:"relays"`
+	Web3SignerDnpName *string  `json:"web3signerDnpName"`
+}
+
 // SetStakerConfig sets the staker configuration on the DappManager API
-func (d *DappManagerAdapter) SetStakerConfig(network domain.Network, executionDnpName, consensusDnpName, mevBoostDnpName, web3signerDnpName *string, relays []string) error {
+func (d *DappManagerAdapter) SetStakerConfig(network Network, executionDnpName, consensusDnpName, mevBoostDnpName, web3signerDnpName *string, relays []string) error {
 	url := d.baseURL + "/stakerConfigSet"
-	requestBody := domain.StakerConfigSetRequest{
+	requestBody := StakerConfigSetRequest{
 		Network:           network,
 		ExecutionDnpName:  executionDnpName,
 		ConsensusDnpName:  consensusDnpName,
@@ -220,6 +252,11 @@ func (d *DappManagerAdapter) RemoveNonCorePackages() error {
 	}
 	for _, pkg := range packages {
 		if !pkg.IsCore {
+			// Skip uninstalling web3signer and mev boost because there are no variants of them
+			// as there are for execution and consensus clients
+			if strings.Contains(pkg.DnpName, "web3signer") || strings.Contains(pkg.DnpName, "mev-boost") {
+				continue
+			}
 			deleteVolumes := true
 			err := d.removePackage(pkg.DnpName, &deleteVolumes)
 			if err != nil {

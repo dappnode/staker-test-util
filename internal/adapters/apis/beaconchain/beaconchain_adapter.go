@@ -134,7 +134,7 @@ func (b *BeaconchainAdapter) GetValidatorLiveness(indexes []string) (map[string]
 
 // GetValidatorsIndexes retrieves the validator index for each given pubkey with status active_ongoing
 func (b *BeaconchainAdapter) GetValidatorsIndexes(pubkeys []string) (map[string]string, error) {
-	url := fmt.Sprintf("%s/eth/v1/beacon/states/head/validators", b.beaconChainUrl)
+	url := fmt.Sprintf("%s/eth/v1/beacon/states/finalized/validators", b.beaconChainUrl)
 	requestBody := struct {
 		IDs      []string `json:"ids"`
 		Statuses []string `json:"statuses"`
