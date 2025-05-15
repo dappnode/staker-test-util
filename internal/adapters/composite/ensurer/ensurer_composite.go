@@ -1,4 +1,4 @@
-package envensurer
+package ensurer
 
 import (
 	"context"
@@ -15,13 +15,7 @@ import (
 	"clients-test/internal/application/domain"
 )
 
-// cli args: ipfsHash
-// Fronm the IPFS hash it will be obtained the dnpName
-// From the dnpName it will be obtained the network
-// From the network it will be obtained the staker config randomized
-// ideas: save timestart and end and collect docker logs and report them
-
-type EnvEnsurerAdapter struct {
+type EnsurerAdapter struct {
 	DappManager  *dappmanager.DappManagerAdapter
 	Brain        *brain.BrainAdapter
 	Tropidatooor *tropidatooor.TropidatooorAdapter
@@ -32,8 +26,8 @@ type EnvEnsurerAdapter struct {
 	Ipfs         *ipfs.IPFSAdapter
 }
 
-func NewEnvEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, tropidatooor *tropidatooor.TropidatooorAdapter, docker *docker.DockerAdapter, mountAdapter *mount.MountAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter) *EnvEnsurerAdapter {
-	return &EnvEnsurerAdapter{
+func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, tropidatooor *tropidatooor.TropidatooorAdapter, docker *docker.DockerAdapter, mountAdapter *mount.MountAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter) *EnsurerAdapter {
+	return &EnsurerAdapter{
 		DappManager:  dappManager,
 		Brain:        brain,
 		Tropidatooor: tropidatooor,
@@ -47,7 +41,7 @@ func NewEnvEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *br
 
 // EnsureEnvironment validates the environment and prepares it for testing.
 // It sets the staker config, installs the package, stops the container, mounts the NFS, and starts the container.
-func (e *EnvEnsurerAdapter) EnsureEnvironment(ctx context.Context, mountConfig domain.Mount, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
+func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, mountConfig domain.Mount, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
 	if err := e.DappManager.SetStakerConfig(ctx, stakerConfig); err != nil {
 		return fmt.Errorf("failed to set staker config for DNP: %w", err)
 	}

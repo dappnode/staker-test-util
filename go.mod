@@ -4,7 +4,6 @@ go 1.24.0
 
 require (
 	github.com/docker/docker v28.1.1+incompatible
-	github.com/joho/godotenv v1.5.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 

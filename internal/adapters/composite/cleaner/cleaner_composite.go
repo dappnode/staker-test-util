@@ -1,4 +1,4 @@
-package envcleaner
+package cleaner
 
 import (
 	"clients-test/internal/adapters/apis/beaconchain"
@@ -7,14 +7,14 @@ import (
 	"clients-test/internal/application/domain"
 )
 
-type EnvCleanerAdapter struct {
+type CleanerAdapter struct {
 	Execution   *execution.ExecutionAdapter
 	Brain       *brain.BrainAdapter
 	Beaconchain *beaconchain.BeaconchainAdapter
 }
 
-func NewEnvCleanerAdapter(execution *execution.ExecutionAdapter, brain *brain.BrainAdapter, beaconchain *beaconchain.BeaconchainAdapter) *EnvCleanerAdapter {
-	return &EnvCleanerAdapter{
+func NewCleanerAdapter(execution *execution.ExecutionAdapter, brain *brain.BrainAdapter, beaconchain *beaconchain.BeaconchainAdapter) *CleanerAdapter {
+	return &CleanerAdapter{
 		Execution:   execution,
 		Brain:       brain,
 		Beaconchain: beaconchain,
@@ -22,6 +22,6 @@ func NewEnvCleanerAdapter(execution *execution.ExecutionAdapter, brain *brain.Br
 }
 
 // CleanEnvironment stops the execution client and clears the validators from the brain.
-func (e *EnvCleanerAdapter) CleanEnvironment(mountConfig domain.Mount) error {
+func (e *CleanerAdapter) CleanEnvironment(mountConfig domain.Mount) error {
 	return nil
 }

@@ -1,4 +1,4 @@
-package testexecutor
+package executor
 
 import (
 	"context"
@@ -10,14 +10,14 @@ import (
 	"clients-test/internal/adapters/apis/execution"
 )
 
-type TestExecutorAdapter struct {
+type ExecutorAdapter struct {
 	Execution   *execution.ExecutionAdapter
 	Brain       *brain.BrainAdapter
 	Beaconchain *beaconchain.BeaconchainAdapter
 }
 
-func NewTestExecutorAdapter(execution *execution.ExecutionAdapter, brain *brain.BrainAdapter, beaconchain *beaconchain.BeaconchainAdapter) *TestExecutorAdapter {
-	return &TestExecutorAdapter{
+func NewExecutorAdapter(execution *execution.ExecutionAdapter, brain *brain.BrainAdapter, beaconchain *beaconchain.BeaconchainAdapter) *ExecutorAdapter {
+	return &ExecutorAdapter{
 		Execution:   execution,
 		Brain:       brain,
 		Beaconchain: beaconchain,
@@ -25,7 +25,7 @@ func NewTestExecutorAdapter(execution *execution.ExecutionAdapter, brain *brain.
 }
 
 // waitForExecutionSync waits until the execution client is synced or times out
-func (t *TestExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
+func (t *ExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 	maxTries := 60
 	for i := 0; i < maxTries; i++ {
 		synced, err := t.Execution.GetIsSyncing(ctx)
@@ -44,7 +44,7 @@ func (t *TestExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 }
 
 // waitForValidatorLiveness waits for all validators to become live up to 3 epochs
-func (t *TestExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
+func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 	pubkeys, err := t.Brain.GetValidatorsPubkeys(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch validators from brain: %v", err)
@@ -85,7 +85,7 @@ func (t *TestExecutorAdapter) waitForValidatorLiveness(ctx context.Context) erro
 }
 
 // ExecuteTest runs both sync and liveness checks in sequence
-func (t *TestExecutorAdapter) ExecuteTest(ctx context.Context) error {
+func (t *ExecutorAdapter) ExecuteTest(ctx context.Context) error {
 	if err := t.waitForExecutionSync(ctx); err != nil {
 		return err
 	}

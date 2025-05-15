@@ -8,9 +8,6 @@ import (
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/ipfs"
 	"clients-test/internal/adapters/apis/tropidatooor"
-	cleaner "clients-test/internal/adapters/composite/envCleaner"
-	ensurer "clients-test/internal/adapters/composite/envEnsurer"
-	executor "clients-test/internal/adapters/composite/testExecutor"
 	"clients-test/internal/adapters/system/mount"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
@@ -19,8 +16,6 @@ import (
 	"flag"
 	"os"
 )
-
-// TODO: intiialize ipfs before and fetch dnpName and then get the urls fr
 
 var logPrefix = "MAIN"
 
