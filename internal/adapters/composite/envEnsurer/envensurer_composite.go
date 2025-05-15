@@ -10,8 +10,8 @@ import (
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/apis/mount"
 	"clients-test/internal/adapters/apis/tropidatooor"
+	"clients-test/internal/adapters/system/mount"
 	"clients-test/internal/application/domain"
 )
 
@@ -48,21 +48,21 @@ func NewEnvEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *br
 // EnsureEnvironment validates the environment and prepares it for testing.
 // It sets the staker config, installs the package, stops the container, mounts the NFS, and starts the container.
 func (e *EnvEnsurerAdapter) EnsureEnvironment(ctx context.Context, ipfsHash string, config domain.TestConfig) error {
-	if err := e.DappManager.SetStakerConfig(ctx, config.StakerClients); err != nil {
+	if err := e.DappManager.SetStakerConfig(ctx, config.Staker.Clients); err != nil {
 		return fmt.Errorf("failed to set staker config for DNP: %w", err)
 	}
 	if err := e.DappManager.PackageInstall(ctx, config.DnpName, ipfsHash); err != nil {
 		return fmt.Errorf("failed to install package: %w", err)
 	}
-	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, config.ExecutionContainerName)
+	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, config.Mount.ExecutionContainerName)
 	if err != nil {
 		return fmt.Errorf("failed to stop container and get volume: %w", err)
 	}
 
-	if err := e.Mount.MountNFS(ctx, config.MountPath, volumeTarget); err != nil {
+	if err := e.Mount.MountNFS(ctx, config.Mount.Path, volumeTarget); err != nil {
 		return fmt.Errorf("failed to mount NFS: %w", err)
 	}
-	if err := e.Docker.StartContainer(ctx, config.ExecutionContainerName); err != nil {
+	if err := e.Docker.StartContainer(ctx, config.Mount.ExecutionContainerName); err != nil {
 		return fmt.Errorf("failed to start container: %w", err)
 	}
 	return nil

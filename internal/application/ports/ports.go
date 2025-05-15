@@ -1,18 +1,22 @@
 package ports
 
-import "context"
+import (
+	"clients-test/internal/application/domain"
+	"context"
+)
 
-// Prepare any needed VMs, containers, secrets, etc.
+type EnvironmentGetter interface {
+	GetEnvironmentConfig(ctx context.Context, ipfsHash string) (*domain.TestConfig, error)
+}
+
 type EnvironmentEnsurer interface {
-	EnsureEnvironment(ctx context.Context) error
+	EnsureEnvironment(ctx context.Context, ipfsHash string, config domain.TestConfig) error
 }
 
-// Execute the actual test suite, return pass/fail
 type TestExecutor interface {
-	ExecuteTest(ctx context.Context) error
+	ExecuteTest(ctx context.Context, indexes []string) error
 }
 
-// Tear down whatever you stood up (always run, even on failure)
 type EnvironmentCleaner interface {
-	CleanUpEnvironment(ctx context.Context) error
+	CleanEnvironment(config *domain.TestConfig) error
 }

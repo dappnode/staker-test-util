@@ -114,7 +114,7 @@ func (d *DappManagerAdapter) GetStakerConfig(ctx context.Context, network string
 }
 
 // SetStakerConfig sets the staker configuration on the DappManager API with context
-func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, stakerClients domain.StakerClients) error {
+func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, stakerClients domain.Clients) error {
 	url := d.baseURL + "/stakerConfigSet"
 	jsonBytes, err := json.Marshal(stakerClients)
 	if err != nil {

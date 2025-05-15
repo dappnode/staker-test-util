@@ -21,24 +21,35 @@ func NewTestRunner(
 }
 
 // RunTest wires up the three steps in sequence.
-func (s *TestRunnerService) RunTest(ctx context.Context) error {
-	// 1) ensure
-	if err := s.Ensurer.EnsureEnvironment(ctx); err != nil {
+// It retrieves the config, ensures the environment, executes the test, and cleans up.
+func (s *TestRunnerService) RunTest(ctx context.Context, ipfsHash string) error {
+	// 1) get config
+	getter, ok := s.Ensurer.(ports.EnvironmentGetter)
+	if !ok {
+		return fmt.Errorf("ensurer does not implement EnvironmentGetter")
+	}
+	config, err := getter.GetEnvironmentConfig(ctx, ipfsHash)
+	if err != nil {
+		return fmt.Errorf("failed to get environment config: %w", err)
+	}
+
+	// 2) ensure environment
+	if err := s.Ensurer.EnsureEnvironment(ctx, ipfsHash, *config); err != nil {
 		return fmt.Errorf("setup failed: %w", err)
 	}
 
-	// 2) execute
-	execErr := s.Executor.ExecuteTest(ctx)
+	// 3) execute test
+	execErr := s.Executor.ExecuteTest(ctx, config.Staker.ValidatorIndexes)
 	if execErr != nil {
 		// even on test failure we want cleanup
-		if cleanupErr := s.Cleaner.CleanUpEnvironment(ctx); cleanupErr != nil {
+		if cleanupErr := s.Cleaner.CleanEnvironment(config); cleanupErr != nil {
 			return fmt.Errorf("test failed: %v; cleanup also failed: %w", execErr, cleanupErr)
 		}
 		return fmt.Errorf("test failed: %w", execErr)
 	}
 
-	// 3) cleanup
-	if err := s.Cleaner.CleanUpEnvironment(ctx); err != nil {
+	// 4) cleanup
+	if err := s.Cleaner.CleanEnvironment(config); err != nil {
 		return fmt.Errorf("cleanup failed: %w", err)
 	}
 

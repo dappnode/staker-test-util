@@ -30,7 +30,7 @@ func NewConfigCompositeAdapter(brain *brain.BrainAdapter, beaconchain *beaconcha
 	}
 }
 
-func (c *ConfigCompositeAdapter) GetTestConfig(ctx context.Context, ipfsHash string) (*domain.TestConfig, error) {
+func (c *ConfigCompositeAdapter) GetEnvironmentConfig(ctx context.Context, ipfsHash string) (*domain.TestConfig, error) {
 	pubkeys, err := c.Brain.GetValidatorsPubkeys(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch validators from brain: %v", err)
@@ -38,7 +38,7 @@ func (c *ConfigCompositeAdapter) GetTestConfig(ctx context.Context, ipfsHash str
 	if len(pubkeys) == 0 {
 		return nil, fmt.Errorf("at least 1 validator must be loaded to be able to run the test")
 	}
-	indexes, err := c.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
+	validatorIndexes, err := c.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get validators indexes: %w", err)
 	}
@@ -46,7 +46,7 @@ func (c *ConfigCompositeAdapter) GetTestConfig(ctx context.Context, ipfsHash str
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dnpName from IPFS hash: %w", err)
 	}
-	mountPath, mountId, err := c.Tropidatooor.GetMountPath(ctx)
+	mountConfig, err := c.Tropidatooor.GetMountPath(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get mount path: %w", err)
 	}
@@ -60,20 +60,18 @@ func (c *ConfigCompositeAdapter) GetTestConfig(ctx context.Context, ipfsHash str
 	execContainerName := ExecutionContainerName(serviceName, stakerClients.ExecutionDnpName)
 
 	return &domain.TestConfig{
-		ValidatorIndexes:       indexes,
-		DnpName:                dnpName,
-		MountPath:              mountPath,
-		MountId:                mountId,
-		ExecutionContainerName: execContainerName,
-		StakerClients:          stakerClients,
+		DnpName: dnpName,
+		Mount:   domain.Mount{Path: mountConfig.Path, Id: mountConfig.Id, ExecutionContainerName: execContainerName},
+		Staker:  domain.Staker{Clients: stakerClients, ValidatorIndexes: validatorIndexes},
 	}, nil
 }
 
-func getStakerClientsForDnp(dnpName string) domain.StakerClients {
+func getStakerClientsForDnp(dnpName string) domain.Clients {
 	network := getNetworkFromDnpName(dnpName)
 	var execClients, consClients []string
 	var web3signer, mevboost string
 	var relays []string = nil
+	var urls domain.Urls
 
 	switch network {
 	case "gnosis":
@@ -82,35 +80,60 @@ func getStakerClientsForDnp(dnpName string) domain.StakerClients {
 		web3signer = "web3signer-hoodi.dnp.dappnode.eth"
 		mevboost = "mev-boost-hoodi.dnp.dappnode.eth"
 		relays = []string{}
+		urls = domain.Urls{
+			ExecutionURL:   "http://execution.gnosis.dncore.dappnode:8545",
+			BrainURL:       "http://brain.web3signer-gnosis.dappnode:5000",
+			BeaconchainURL: "http://beaconchain.gnosis.dncore.dappnode:3500",
+			DappmanagerURL: "http://dappmanager.dappnode:5000",
+		}
 	case "mainnet":
 		execClients = []string{"nethermind.public.dappnode.eth", "geth.dnp.dappnode.eth", "erigon.dnp.dappnode.eth", "reth.dnp.dappnode.eth", "besu.public.dappnode.eth"}
 		consClients = []string{"lighthouse.dnp.dappnode.eth", "prysm.dnp.dappnode.eth", "lodestar.dnp.dappnode.eth", "nimbus.dnp.dappnode.eth", "teku.dnp.dappnode.eth"}
 		web3signer = "web3signer.dnp.dappnode.eth"
 		mevboost = "mev-boost.dnp.dappnode.eth"
 		relays = []string{}
+		urls = domain.Urls{
+			ExecutionURL:   "http://execution.mainnet.dncore.dappnode:8545",
+			BrainURL:       "http://brain.web3signer.dappnode:5000",
+			BeaconchainURL: "http://beaconchain.mainnet.dncore.dappnode:3500",
+			DappmanagerURL: "http://dappmanager.dappnode:5000",
+		}
 	case "lukso":
 		execClients = []string{"lukso-geth.dnp.dappnode.eth"}
 		consClients = []string{"prysm-lukso.dnp.dappnode.eth", "teku-luks.dnp.dappnode.eth"}
 		web3signer = "web3signer-lukso.dnp.dappnode.eth"
 		mevboost = "mev-boost-lukso.dnp.dappnode.eth"
 		relays = []string{}
+		urls = domain.Urls{
+			ExecutionURL:   "http://execution.lukso.dncore.dappnode:8545",
+			BrainURL:       "http://brain.web3signer-lukso.dappnode:5000",
+			BeaconchainURL: "http://beaconchain.lukso.dncore.dappnode:3500",
+			DappmanagerURL: "http://dappmanager.dappnode:5000",
+		}
 	case "hoodi":
 		execClients = []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
 		consClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth", "lighthouse-hoodi.dnp.dappnode.eth"}
 		web3signer = "web3signer-hoodi.dnp.dappnode.eth"
 		mevboost = "mev-boost-hoodi.dnp.dappnode.eth"
 		relays = []string{}
+		urls = domain.Urls{
+			ExecutionURL:   "http://execution.hoodi.dncore.dappnode:8545",
+			BrainURL:       "http://brain.web3signer-hoodi.dappnode:5000",
+			BeaconchainURL: "http://beaconchain.hoodi.dncore.dappnode:3500",
+			DappmanagerURL: "http://dappmanager.dappnode:8080",
+		}
 	}
 
 	exec := matchOrRandom(dnpName, execClients)
 	cons := matchOrRandom(dnpName, consClients)
-	return domain.StakerClients{
+	return domain.Clients{
 		ExecutionDnpName:  exec,
 		ConsensusDnpName:  cons,
 		Web3SignerDnpName: web3signer,
 		MevBoostDnpName:   mevboost,
 		Relays:            relays,
 		Network:           network,
+		Urls:              urls,
 	}
 }
 
