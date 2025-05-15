@@ -5,14 +5,8 @@ import (
 	"context"
 )
 
-type EnvironmentEnsurer interface {
+type TestRunner interface {
 	EnsureEnvironment(ctx context.Context, mountConfig domain.Mount, stakerConfig domain.StakerConfig, pkg domain.Pkg) error
-}
-
-type TestExecutor interface {
 	ExecuteTest(ctx context.Context) error
-}
-
-type EnvironmentCleaner interface {
 	CleanEnvironment(mountConfig domain.Mount) error
 }
