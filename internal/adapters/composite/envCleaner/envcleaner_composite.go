@@ -22,6 +22,6 @@ func NewEnvCleanerAdapter(execution *execution.ExecutionAdapter, brain *brain.Br
 }
 
 // CleanEnvironment stops the execution client and clears the validators from the brain.
-func (e *EnvCleanerAdapter) CleanEnvironment(config *domain.TestConfig) error {
+func (e *EnvCleanerAdapter) CleanEnvironment(mountConfig domain.Mount) error {
 	return nil
 }

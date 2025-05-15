@@ -5,18 +5,14 @@ import (
 	"context"
 )
 
-type EnvironmentGetter interface {
-	GetEnvironmentConfig(ctx context.Context, ipfsHash string) (*domain.TestConfig, error)
-}
-
 type EnvironmentEnsurer interface {
-	EnsureEnvironment(ctx context.Context, ipfsHash string, config domain.TestConfig) error
+	EnsureEnvironment(ctx context.Context, mountConfig domain.Mount, stakerConfig domain.StakerConfig, pkg domain.Pkg) error
 }
 
 type TestExecutor interface {
-	ExecuteTest(ctx context.Context, indexes []string) error
+	ExecuteTest(ctx context.Context) error
 }
 
 type EnvironmentCleaner interface {
-	CleanEnvironment(config *domain.TestConfig) error
+	CleanEnvironment(mountConfig domain.Mount) error
 }

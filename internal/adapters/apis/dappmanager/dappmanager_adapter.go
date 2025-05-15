@@ -17,9 +17,9 @@ type DappManagerAdapter struct {
 }
 
 // NewDappManagerAdapter creates a new DappManagerAdapter
-func NewDappManagerAdapter(baseURL string) *DappManagerAdapter {
+func NewDappManagerAdapter() *DappManagerAdapter {
 	return &DappManagerAdapter{
-		baseURL: baseURL,
+		baseURL: "http://my.dappnode:5000",
 		client:  &http.Client{},
 	}
 }
@@ -43,9 +43,9 @@ func (d *DappManagerAdapter) Ping(ctx context.Context) error {
 }
 
 // PackageInstall installs a package on the dappnode with context
-func (d *DappManagerAdapter) PackageInstall(ctx context.Context, dnpName, versionOrIpfsHash string) error {
+func (d *DappManagerAdapter) PackageInstall(ctx context.Context, pkg domain.Pkg) error {
 	url := d.baseURL + "/packageInstall"
-	payload := fmt.Sprintf(`{"name": "%s", "version": "%s", "userSettings": {}, "options": {"BYPASS_CORE_RESTRICTION": true, "BYPASS_SIGNED_RESTRICTION": true}}`, dnpName, versionOrIpfsHash)
+	payload := fmt.Sprintf(`{"name": "%s", "version": "%s", "userSettings": {}, "options": {"BYPASS_CORE_RESTRICTION": true, "BYPASS_SIGNED_RESTRICTION": true}}`, pkg.DnpName, pkg.Version)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(payload))
 	if err != nil {
@@ -114,7 +114,7 @@ func (d *DappManagerAdapter) GetStakerConfig(ctx context.Context, network string
 }
 
 // SetStakerConfig sets the staker configuration on the DappManager API with context
-func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, stakerClients domain.Clients) error {
+func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, stakerClients domain.StakerConfig) error {
 	url := d.baseURL + "/stakerConfigSet"
 	jsonBytes, err := json.Marshal(stakerClients)
 	if err != nil {

@@ -44,7 +44,18 @@ func (t *TestExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 }
 
 // waitForValidatorLiveness waits for all validators to become live up to 3 epochs
-func (t *TestExecutorAdapter) waitForValidatorLiveness(ctx context.Context, indexes []string) error {
+func (t *TestExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
+	pubkeys, err := t.Brain.GetValidatorsPubkeys(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch validators from brain: %v", err)
+	}
+	if len(pubkeys) == 0 {
+		return fmt.Errorf("at least 1 validator must be loaded to be able to run the test")
+	}
+	indexes, err := t.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
+	if err != nil {
+		return fmt.Errorf("failed to get validators indexes: %w", err)
+	}
 	if len(indexes) == 0 {
 		return fmt.Errorf("no validator indexes provided")
 	}
@@ -74,11 +85,11 @@ func (t *TestExecutorAdapter) waitForValidatorLiveness(ctx context.Context, inde
 }
 
 // ExecuteTest runs both sync and liveness checks in sequence
-func (t *TestExecutorAdapter) ExecuteTest(ctx context.Context, indexes []string) error {
+func (t *TestExecutorAdapter) ExecuteTest(ctx context.Context) error {
 	if err := t.waitForExecutionSync(ctx); err != nil {
 		return err
 	}
-	if err := t.waitForValidatorLiveness(ctx, indexes); err != nil {
+	if err := t.waitForValidatorLiveness(ctx); err != nil {
 		return err
 	}
 	return nil
