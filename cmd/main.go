@@ -8,6 +8,9 @@ import (
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/ipfs"
 	"clients-test/internal/adapters/apis/tropidatooor"
+	"clients-test/internal/adapters/composite/cleaner"
+	"clients-test/internal/adapters/composite/ensurer"
+	"clients-test/internal/adapters/composite/executor"
 	"clients-test/internal/adapters/system/mount"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
@@ -63,12 +66,12 @@ func main() {
 	}
 
 	// Initialize composite adapters
-	envEnsurer := ensurer.NewEnvEnsurerAdapter(dappManagerAdapter, brainAdapter, tropidatooorAdapter, dockerAdapter, mountAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter)
-	testExecutor := executor.NewTestExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
-	envCleaner := cleaner.NewEnvCleanerAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
+	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, tropidatooorAdapter, dockerAdapter, mountAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter)
+	executor := executor.NewExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
+	cleaner := cleaner.NewCleanerAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
 
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(envEnsurer, testExecutor, envCleaner)
+	testRunner := services.NewTestRunner(ensurer, executor, cleaner)
 
 	if err := testRunner.RunTest(ctx, mountConfig, stakerConfig, pkg); err != nil {
 		logger.ErrorWithPrefix(logPrefix, "Test run failed: %v", err)
