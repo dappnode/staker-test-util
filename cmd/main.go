@@ -64,7 +64,7 @@ func main() {
 	}
 
 	// Initialize the unified test adapter (now also initializes composites internally)
-	testAdapter := composite.NewCompositeAdapter(
+	composite := composite.NewCompositeAdapter(
 		dappManagerAdapter,
 		brainAdapter,
 		tropidatooorAdapter,
@@ -76,7 +76,7 @@ func main() {
 	)
 
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(testAdapter)
+	testRunner := services.NewTestRunner(composite)
 
 	if err := testRunner.RunTest(ctx, mountConfig, stakerConfig, pkg); err != nil {
 		logger.ErrorWithPrefix(logPrefix, "Test run failed: %v", err)
