@@ -23,6 +23,6 @@ func NewCleanerAdapter(execution *execution.ExecutionAdapter, brain *brain.Brain
 
 // CleanEnvironment stops the execution client and clears the validators from the brain.
 func (e *CleanerAdapter) CleanEnvironment(mountConfig domain.Mount) error {
-	// TODO: clean should remove all non-core packages and also do not remove signer cause its heavy. and release mount
+	// TODO: clean should remove all non-core packages and also do not remove signer volumes so validator indexes are there. and release mount
 	return nil
 }

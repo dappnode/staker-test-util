@@ -22,6 +22,7 @@ var logPrefix = "MAIN"
 func main() {
 	logger.InfoWithPrefix(logPrefix, "Starting Notifications service")
 
+	// TODO: allow to set execution and consensus clients through flags
 	// CLI flags
 	ipfsGatewayUrl := flag.String("ipfs-gateway-url", "", "IPFS gateway URL (required)")
 	tropidatooorUrl := flag.String("tropidatooor-url", "", "Tropidatooor API URL (required)")
