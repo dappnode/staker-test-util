@@ -15,7 +15,6 @@ import (
 	"clients-test/internal/logger"
 	"context"
 	"flag"
-	"os"
 )
 
 var logPrefix = "MAIN"
@@ -30,8 +29,7 @@ func main() {
 	flag.Parse()
 
 	if *ipfsGatewayUrl == "" || *tropidatooorUrl == "" || *ipfsHash == "" {
-		logger.ErrorWithPrefix(logPrefix, "All flags --ipfs-gateway-url, --tropidatooor-url, and --ipfs-hash are required.")
-		os.Exit(1)
+		logger.FatalWithPrefix(logPrefix, "All flags --ipfs-gateway-url, --tropidatooor-url, and --ipfs-hash are required.")
 	}
 
 	ctx := context.Background()
@@ -39,6 +37,9 @@ func main() {
 	// Fetch dnpName from ipfs hash
 	ipfsAdapter := ipfs.NewIPFSAdapter(ipfsGatewayUrl)
 	pkg, err := ipfsAdapter.GetDnpNameAndServiceName(ctx, *ipfsHash)
+	if err != nil {
+		logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
+	}
 
 	// Retrieve staker config based on pkg (dnpName and serviceName)
 	stakerConfig := domain.StakerConfigForNetwork(pkg)
@@ -47,8 +48,7 @@ func main() {
 	tropidatooorAdapter := tropidatooor.NewTropidatooorAdapter(*tropidatooorUrl)
 	mountConfig, err := tropidatooorAdapter.GetMountPath(ctx)
 	if err != nil {
-		logger.ErrorWithPrefix(logPrefix, "Failed to get mount path: %v", err)
-		os.Exit(1)
+		logger.FatalWithPrefix(logPrefix, "Failed to get mount path: %v", err)
 	}
 
 	// Initialize API adapters
@@ -59,8 +59,7 @@ func main() {
 	executionAdapter := execution.NewExecutionAdapter(stakerConfig.Urls.ExecutionURL)
 	dockerAdapter, err := docker.NewDockerAdapter()
 	if err != nil {
-		logger.ErrorWithPrefix(logPrefix, "Failed to init DockerAdapter: %v", err)
-		os.Exit(1)
+		logger.FatalWithPrefix(logPrefix, "Failed to init DockerAdapter: %v", err)
 	}
 
 	// Initialize the unified test adapter (now also initializes composites internally)
@@ -79,8 +78,7 @@ func main() {
 	testRunner := services.NewTestRunner(composite)
 
 	if err := testRunner.RunTest(ctx, mountConfig, stakerConfig, pkg); err != nil {
-		logger.ErrorWithPrefix(logPrefix, "Test run failed: %v", err)
-		os.Exit(1)
+		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
 	}
 
 	logger.InfoWithPrefix(logPrefix, "Test run completed successfully")
