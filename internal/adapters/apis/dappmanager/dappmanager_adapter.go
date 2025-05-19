@@ -229,10 +229,12 @@ func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) error {
 	}
 	for _, pkg := range packages {
 		if !pkg.IsCore {
-			if strings.Contains(pkg.DnpName, "web3signer") || strings.Contains(pkg.DnpName, "mev-boost") {
-				continue
-			}
 			deleteVolumes := true
+			// Do not remove web3signer volumes
+			if strings.Contains(pkg.DnpName, "web3signer") {
+				deleteVolumes = false
+			}
+
 			err := d.removePackage(ctx, pkg.DnpName, &deleteVolumes)
 			if err != nil {
 				return fmt.Errorf("failed to remove package %s: %w", pkg.DnpName, err)

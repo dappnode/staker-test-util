@@ -34,7 +34,7 @@ func NewCompositeAdapter(
 ) *CompositeAdapter {
 	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, tropidatooorAdapter, dockerAdapter, mountAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter)
 	executor := executor.NewExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
-	cleaner := cleaner.NewCleanerAdapter(executionAdapter, brainAdapter, beaconchainAdapter, dockerAdapter, mountAdapter)
+	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, brainAdapter, beaconchainAdapter, dockerAdapter, mountAdapter)
 	return &CompositeAdapter{ensurer, executor, cleaner}
 }
 
