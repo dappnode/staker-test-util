@@ -47,7 +47,7 @@ func main() {
 
 	// Get mount path
 	tropidatooorAdapter := tropidatooor.NewTropidatooorAdapter(*tropidatooorUrl)
-	mountConfig, err := tropidatooorAdapter.GetMountPath(ctx)
+	mountConfig, err := tropidatooorAdapter.DataRequest(ctx, stakerConfig.DataBackendName)
 	if err != nil {
 		logger.FatalWithPrefix(logPrefix, "Failed to get mount path: %v", err)
 	}
@@ -78,7 +78,7 @@ func main() {
 	// Initialize and run the service
 	testRunner := services.NewTestRunner(composite)
 
-	if err := testRunner.RunTest(ctx, mountConfig, stakerConfig, pkg); err != nil {
+	if err := testRunner.RunTest(ctx, *mountConfig, stakerConfig, pkg); err != nil {
 		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
 	}
 

@@ -16,6 +16,7 @@ type StakerConfig struct {
 	Network                string
 	Urls                   Urls
 	ExecutionContainerName string // The name of the container to mount the NFS volume to
+	DataBackendName        string // The name of the backend to use for data requests
 }
 
 type Urls struct {
@@ -31,6 +32,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 	var web3signer, mevboost string
 	var relays []string = nil
 	var urls Urls
+	var dataBackend string
 
 	switch network {
 	case "gnosis":
@@ -45,6 +47,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 			BeaconchainURL: "http://beaconchain.gnosis.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:5000",
 		}
+		dataBackend = "nethermind-gnosis"
 	case "mainnet":
 		execClients = []string{"nethermind.public.dappnode.eth", "geth.dnp.dappnode.eth", "erigon.dnp.dappnode.eth", "reth.dnp.dappnode.eth", "besu.public.dappnode.eth"}
 		consClients = []string{"lighthouse.dnp.dappnode.eth", "prysm.dnp.dappnode.eth", "lodestar.dnp.dappnode.eth", "nimbus.dnp.dappnode.eth", "teku.dnp.dappnode.eth"}
@@ -57,6 +60,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 			BeaconchainURL: "http://beaconchain.mainnet.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:5000",
 		}
+		dataBackend = "geth-mainnet"
 	case "lukso":
 		execClients = []string{"lukso-geth.dnp.dappnode.eth"}
 		consClients = []string{"prysm-lukso.dnp.dappnode.eth", "teku-luks.dnp.dappnode.eth"}
@@ -69,6 +73,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 			BeaconchainURL: "http://beaconchain.lukso.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:5000",
 		}
+		dataBackend = "geth-lukso"
 	case "hoodi":
 		execClients = []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
 		consClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth", "lighthouse-hoodi.dnp.dappnode.eth"}
@@ -81,6 +86,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 			BeaconchainURL: "http://beaconchain.hoodi.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:8080",
 		}
+		dataBackend = "geth-hoodi"
 	}
 
 	exec := matchOrRandom(pkg.DnpName, execClients)
@@ -94,6 +100,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		Network:                network,
 		Urls:                   urls,
 		ExecutionContainerName: executionContainerName(pkg.ServiceName, pkg.DnpName),
+		DataBackendName:        dataBackend,
 	}
 }
 
