@@ -21,3 +21,13 @@ func (m *MountAdapter) MountNFS(ctx context.Context, srcPath, targetPath string)
 	}
 	return nil
 }
+
+// UnmountNFS unmounts the filesystem at targetPath using sudo umount
+func (m *MountAdapter) UnmountNFS(ctx context.Context, targetPath string) error {
+	umountCmd := exec.CommandContext(ctx, "sudo", "umount", targetPath)
+	output, err := umountCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to unmount %s: %v\n%s", targetPath, err, string(output))
+	}
+	return nil
+}

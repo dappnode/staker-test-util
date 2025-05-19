@@ -22,46 +22,47 @@ func NewTropidatooorAdapter(baseURL string) *TropidatooorAdapter {
 	}
 }
 
-// Ping sends a ping request to the Tropidatooor API with context
-func (t *TropidatooorAdapter) Ping(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", t.baseURL+"/ping", nil)
+// DataRequest sends a request to the Tropidatooor API to request data for a specific backend
+func (t *TropidatooorAdapter) DataRequest(ctx context.Context, backendName string) (*domain.Mount, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/data/request/%s", t.baseURL, backendName), nil)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+	
 	resp, err := t.client.Do(req)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
+	
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to ping Tropidatooor API: %s", resp.Status)
+		return nil, fmt.Errorf("failed to request data for %s: status %s", backendName, resp.Status)
 	}
-	return nil
+	
+	var dataResponse domain.Mount
+	if err := json.NewDecoder(resp.Body).Decode(&dataResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return &dataResponse, nil
 }
 
-// GetMountPath retrieves the mount path and mount ID from the Tropidatooor API
-func (t *TropidatooorAdapter) GetMountPath(ctx context.Context) (mountConfig domain.Mount, err error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", t.baseURL+"/mount-path", nil)
+// DataRelease sends a request to the Tropidatooor API to release data for a specific uniqueId
+func (t *TropidatooorAdapter) DataRelease(ctx context.Context, uniqueId string) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/data/release/%s", t.baseURL, uniqueId), nil)
 	if err != nil {
-		return domain.Mount{}, err
+		return fmt.Errorf("failed to create request: %w", err)
 	}
+	
 	resp, err := t.client.Do(req)
 	if err != nil {
-		return domain.Mount{}, err
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
+	
 	if resp.StatusCode != http.StatusOK {
-		return domain.Mount{}, fmt.Errorf("failed to get mount path from Tropidatooor API: %s", resp.Status)
+		return fmt.Errorf("failed to release data for %s: status %s", uniqueId, resp.Status)
 	}
-	var respObj struct {
-		MountPath string `json:"mountPath"`
-		MountId   string `json:"mountId"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&respObj); err != nil {
-		return domain.Mount{}, err
-	}
-	return domain.Mount{
-		Path: respObj.MountPath,
-		Id:   respObj.MountId,
-	}, nil
+	
+	return nil
 }

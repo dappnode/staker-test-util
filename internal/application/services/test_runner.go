@@ -27,14 +27,14 @@ func (s *TestRunnerService) RunTest(ctx context.Context, mountConfig domain.Moun
 	execErr := s.Runner.ExecuteTest(ctx)
 	if execErr != nil {
 		// even on test failure we want cleanup
-		if cleanupErr := s.Runner.CleanEnvironment(mountConfig); cleanupErr != nil {
+		if cleanupErr := s.Runner.CleanEnvironment(ctx, stakerConfig, mountConfig); cleanupErr != nil {
 			return fmt.Errorf("test failed: %v; cleanup also failed: %w", execErr, cleanupErr)
 		}
 		return fmt.Errorf("test failed: %w", execErr)
 	}
 
 	// 3) cleanup
-	if err := s.Runner.CleanEnvironment(mountConfig); err != nil {
+	if err := s.Runner.CleanEnvironment(ctx, stakerConfig, mountConfig); err != nil {
 		return fmt.Errorf("cleanup failed: %w", err)
 	}
 

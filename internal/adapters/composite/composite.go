@@ -34,7 +34,7 @@ func NewCompositeAdapter(
 ) *CompositeAdapter {
 	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, tropidatooorAdapter, dockerAdapter, mountAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter)
 	executor := executor.NewExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
-	cleaner := cleaner.NewCleanerAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
+	cleaner := cleaner.NewCleanerAdapter(executionAdapter, brainAdapter, beaconchainAdapter, dockerAdapter, mountAdapter)
 	return &CompositeAdapter{ensurer, executor, cleaner}
 }
 
@@ -46,6 +46,6 @@ func (t *CompositeAdapter) ExecuteTest(ctx context.Context) error {
 	return t.executor.ExecuteTest(ctx)
 }
 
-func (t *CompositeAdapter) CleanEnvironment(mountConfig domain.Mount) error {
-	return t.cleaner.CleanEnvironment(mountConfig)
+func (t *CompositeAdapter) CleanEnvironment(ctx context.Context, stakerConfig domain.StakerConfig, mountConfig domain.Mount) error {
+	return t.cleaner.CleanEnvironment(ctx, stakerConfig, mountConfig)
 }
