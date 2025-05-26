@@ -8,12 +8,12 @@ import (
 )
 
 type StakerConfig struct {
-	ExecutionDnpName       string
-	ConsensusDnpName       string
-	Web3SignerDnpName      string
-	MevBoostDnpName        string
-	Relays                 []string
-	Network                string
+	ExecutionDnpName       string   `json:"executionDnpName"`
+	ConsensusDnpName       string   `json:"consensusDnpName"`
+	Web3SignerDnpName      string   `json:"web3SignerDnpName"`
+	MevBoostDnpName        string   `json:"mevBoostDnpName"`
+	Relays                 []string `json:"relays,omitempty"` // Optional, can be empty
+	Network                string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
 	Urls                   Urls
 	ExecutionContainerName string // The name of the container to mount the NFS volume to
 	DataBackendName        string // The name of the backend to use for data requests

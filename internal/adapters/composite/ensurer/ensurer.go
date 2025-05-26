@@ -48,7 +48,7 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, mountConfig doma
 	if err := e.DappManager.PackageInstall(ctx, pkg); err != nil {
 		return fmt.Errorf("failed to install package: %w", err)
 	}
-	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, mountConfig.Path)
+	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, stakerConfig.ExecutionContainerName)
 	if err != nil {
 		return fmt.Errorf("failed to stop container and get volume: %w", err)
 	}

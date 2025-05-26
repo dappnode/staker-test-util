@@ -38,7 +38,7 @@ func NewCleanerAdapter(dappmanager *dappmanager.DappManagerAdapter, execution *e
 // CleanEnvironment release the mounted volume and remove non-core packages
 func (e *CleanerAdapter) CleanEnvironment(ctx context.Context, stakerConfig domain.StakerConfig, mountConfig domain.Mount) error {
 	// Release the mounted volume
-	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, mountConfig.Path)
+	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, stakerConfig.ExecutionContainerName)
 	if err == nil {
 		if err := e.Mount.UnmountNFS(ctx, volumeTarget); err != nil {
 			return fmt.Errorf("failed to unmount NFS: %w", err)
