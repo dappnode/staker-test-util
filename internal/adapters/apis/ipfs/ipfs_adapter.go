@@ -68,7 +68,7 @@ func (a *IPFSAdapter) getDnpNameFromHash(ctx context.Context, ipfsHash string) (
 		return "", err
 	}
 	var pkg struct {
-		DnpName string `json:"dnpName"`
+		DnpName string `json:"name"`
 	}
 	if err := json.Unmarshal(body, &pkg); err != nil {
 		return "", err
