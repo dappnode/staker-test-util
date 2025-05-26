@@ -1,6 +1,7 @@
 package dappmanager
 
 import (
+	"bytes"
 	"clients-test/internal/application/domain"
 	"context"
 	"encoding/json"
@@ -47,7 +48,7 @@ func (d *DappManagerAdapter) PackageInstall(ctx context.Context, pkg domain.Pkg)
 	url := d.baseURL + "/packageInstall"
 	payload := fmt.Sprintf(`{"name": "%s", "version": "%s", "userSettings": {}, "options": {"BYPASS_CORE_RESTRICTION": true, "BYPASS_SIGNED_RESTRICTION": true}}`, pkg.DnpName, pkg.Version)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader([]byte(payload)))
 	if err != nil {
 		return err
 	}
@@ -84,7 +85,7 @@ func (d *DappManagerAdapter) GetStakerConfig(ctx context.Context, network string
 	url := d.baseURL + "/stakerConfigGet"
 	payload := fmt.Sprintf(`{"network": "%s"}`, network)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader([]byte(payload)))
 	if err != nil {
 		return StakerConfigGetMinimal{}, err
 	}
@@ -116,12 +117,23 @@ func (d *DappManagerAdapter) GetStakerConfig(ctx context.Context, network string
 // SetStakerConfig sets the staker configuration on the DappManager API with context
 func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, stakerClients domain.StakerConfig) error {
 	url := d.baseURL + "/stakerConfigSet"
-	jsonBytes, err := json.Marshal(stakerClients)
+	// only include the fields we care about under the `stakerConfig` key
+	payload := map[string]interface{}{
+		"stakerConfig": map[string]interface{}{
+			"network":           stakerClients.Network,
+			"executionDnpName":  stakerClients.ExecutionDnpName,
+			"consensusDnpName":  stakerClients.ConsensusDnpName,
+			"mevBoostDnpName":   stakerClients.MevBoostDnpName,
+			"web3SignerDnpName": stakerClients.Web3SignerDnpName,
+			"relays":            stakerClients.Relays,
+		},
+	}
+	jsonBytes, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonBytes)))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBytes))
 	if err != nil {
 		return err
 	}
@@ -156,7 +168,7 @@ func (d *DappManagerAdapter) removePackage(ctx context.Context, dnpName string, 
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(jsonBytes)))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBytes))
 	if err != nil {
 		return err
 	}
