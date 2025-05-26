@@ -15,6 +15,7 @@ import (
 	"clients-test/internal/logger"
 	"context"
 	"flag"
+	"fmt"
 )
 
 var logPrefix = "MAIN"
@@ -90,25 +91,33 @@ func main() {
 
 // helper to pretty print staker config
 func printStakerConfig(prefix string, sc domain.StakerConfig) {
-	logger.InfoWithPrefix(prefix, "StakerConfig:")
-	logger.InfoWithPrefix(prefix, "  ExecutionDnpName: %s", sc.ExecutionDnpName)
-	logger.InfoWithPrefix(prefix, "  ConsensusDnpName: %s", sc.ConsensusDnpName)
-	logger.InfoWithPrefix(prefix, "  Web3SignerDnpName: %s", sc.Web3SignerDnpName)
-	logger.InfoWithPrefix(prefix, "  MevBoostDnpName: %s", sc.MevBoostDnpName)
-	logger.InfoWithPrefix(prefix, "  Network: %s", sc.Network)
-	logger.InfoWithPrefix(prefix, "  ExecutionContainerName: %s", sc.ExecutionContainerName)
-	logger.InfoWithPrefix(prefix, "  DataBackendName: %s", sc.DataBackendName)
-	logger.InfoWithPrefix(prefix, "  Urls:")
-	logger.InfoWithPrefix(prefix, "    ExecutionURL: %s", sc.Urls.ExecutionURL)
-	logger.InfoWithPrefix(prefix, "    BrainURL: %s", sc.Urls.BrainURL)
-	logger.InfoWithPrefix(prefix, "    BeaconchainURL: %s", sc.Urls.BeaconchainURL)
-	logger.InfoWithPrefix(prefix, "    DappmanagerURL: %s", sc.Urls.DappmanagerURL)
-	logger.InfoWithPrefix(prefix, "  Relays:")
-	if len(sc.Relays) == 0 {
-		logger.InfoWithPrefix(prefix, "    (none)")
-	} else {
-		for _, r := range sc.Relays {
-			logger.InfoWithPrefix(prefix, "    - %s", r)
-		}
-	}
+	// aggregate all fields into one log message
+	msg := fmt.Sprintf(`StakerConfig:
+  ExecutionDnpName: %s
+  ConsensusDnpName: %s
+  Web3SignerDnpName: %s
+  MevBoostDnpName: %s
+  Network: %s
+  ExecutionContainerName: %s
+  DataBackendName: %s
+  Urls:
+    ExecutionURL: %s
+    BrainURL: %s
+    BeaconchainURL: %s
+    DappmanagerURL: %s
+  Relays: %v`,
+		sc.ExecutionDnpName,
+		sc.ConsensusDnpName,
+		sc.Web3SignerDnpName,
+		sc.MevBoostDnpName,
+		sc.Network,
+		sc.ExecutionContainerName,
+		sc.DataBackendName,
+		sc.Urls.ExecutionURL,
+		sc.Urls.BrainURL,
+		sc.Urls.BeaconchainURL,
+		sc.Urls.DappmanagerURL,
+		sc.Relays,
+	)
+	logger.InfoWithPrefix(prefix, "%s", msg)
 }
