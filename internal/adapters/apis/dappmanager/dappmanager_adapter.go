@@ -19,7 +19,7 @@ type DappManagerAdapter struct {
 // NewDappManagerAdapter creates a new DappManagerAdapter
 func NewDappManagerAdapter() *DappManagerAdapter {
 	return &DappManagerAdapter{
-		baseURL: "http://my.dappnode:5000",
+		baseURL: "http://my.dappnode:7000",
 		client:  &http.Client{},
 	}
 }
