@@ -24,64 +24,112 @@ func NewExecutorAdapter(execution *execution.ExecutionAdapter, brain *brain.Brai
 	}
 }
 
-// waitForExecutionSync waits until the execution client is synced or times out
+// waitForExecutionSync waits until the execution client is synced or times out,
+// returning only after maxTries with the most recent error (if any).
 func (t *ExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
-	maxTries := 60
+	const (
+		maxTries = 60
+		sleepDur = 3 * time.Second
+	)
+	var lastErr error
+
 	for i := 0; i < maxTries; i++ {
-		synced, err := t.Execution.GetIsSyncing(ctx)
+		syncing, err := t.Execution.GetIsSyncing(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to check execution sync: %w", err)
-		}
-		if !synced {
+			// record the error, but don't bail out yet
+			lastErr = fmt.Errorf("check execution sync attempt %d failed: %w", i+1, err)
+		} else if !syncing {
+			// once we see “not syncing” we know the node is caught up
 			return nil
 		}
-		if i == maxTries-1 {
-			return fmt.Errorf("execution client did not sync after %d attempts", maxTries)
+
+		// if we're on the last try, break and return lastErr
+		if i < maxTries-1 {
+			time.Sleep(sleepDur)
 		}
-		time.Sleep(3 * time.Second)
 	}
-	return nil
+
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("execution client did not sync after %d attempts", maxTries)
 }
 
-// waitForValidatorLiveness waits for all validators to become live up to 3 epochs
+// waitForValidatorLiveness waits for all validators to become live up to maxEpochs.
+// It only errors out after maxEpochs, returning the last error encountered.
 func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
-	pubkeys, err := t.Brain.GetValidatorsPubkeys(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to fetch validators from brain: %v", err)
+	const (
+		maxEpochs    = 3
+		epochSeconds = 6*60 + 24 // 384s
+	)
+	epochDuration := time.Duration(epochSeconds) * time.Second
+
+	var lastErr error
+
+	// First, we need pubkeys and indexes—retry these as well.
+	var pubkeys []string
+	for i := 0; i < maxEpochs; i++ {
+		var err error
+		pubkeys, err = t.Brain.GetValidatorsPubkeys(ctx)
+		if err != nil {
+			lastErr = fmt.Errorf("fetch validators attempt %d failed: %w", i+1, err)
+		} else if len(pubkeys) == 0 {
+			lastErr = fmt.Errorf("attempt %d: no validators loaded", i+1)
+		} else {
+			break
+		}
+		if i < maxEpochs-1 {
+			time.Sleep(epochDuration)
+		}
 	}
 	if len(pubkeys) == 0 {
-		return fmt.Errorf("at least 1 validator must be loaded to be able to run the test")
+		return lastErr
 	}
-	indexes, err := t.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
-	if err != nil {
-		return fmt.Errorf("failed to get validators indexes: %w", err)
+
+	var indexes []string
+	for i := 0; i < maxEpochs; i++ {
+		var err error
+		indexes, err := t.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
+		if err != nil {
+			lastErr = fmt.Errorf("get validator indexes attempt %d failed: %w", i+1, err)
+		} else if len(indexes) == 0 {
+			lastErr = fmt.Errorf("attempt %d: no validator indexes returned", i+1)
+		} else {
+			break
+		}
+		if i < maxEpochs-1 {
+			time.Sleep(epochDuration)
+		}
 	}
 	if len(indexes) == 0 {
-		return fmt.Errorf("no validator indexes provided")
+		return lastErr
 	}
-	maxEpochs := 3
-	epochDuration := 6*time.Minute + 24*time.Second // 384 seconds
+
+	// Now poll liveness over up to maxEpochs
 	for epoch := 0; epoch < maxEpochs; epoch++ {
 		liveness, err := t.Beaconchain.GetValidatorLiveness(ctx, indexes)
 		if err != nil {
-			return fmt.Errorf("failed to get validator liveness: %w", err)
-		}
-		allLive := true
-		for _, live := range liveness {
-			if !live {
-				allLive = false
-				break
+			lastErr = fmt.Errorf("get validator liveness epoch %d failed: %w", epoch, err)
+		} else {
+			allLive := true
+			for _, live := range liveness {
+				if !live {
+					allLive = false
+					break
+				}
 			}
+			if allLive {
+				return nil
+			}
+			lastErr = fmt.Errorf("epoch %d: some validators still not live", epoch)
 		}
-		if allLive {
-			return nil
+
+		if epoch < maxEpochs-1 {
+			time.Sleep(epochDuration)
 		}
-		if epoch == maxEpochs-1 {
-			return fmt.Errorf("validators did not become live after %d epochs", maxEpochs)
-		}
-		time.Sleep(epochDuration)
 	}
-	return nil
+
+	return lastErr
 }
 
 // ExecuteTest runs both sync and liveness checks in sequence
