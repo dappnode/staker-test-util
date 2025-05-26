@@ -45,6 +45,9 @@ func main() {
 	// Retrieve staker config based on pkg (dnpName and serviceName)
 	stakerConfig := domain.StakerConfigForNetwork(pkg)
 
+	// print the staker config for debugging with each item on a new line
+	printStakerConfig(logPrefix, stakerConfig)
+
 	// Get mount path
 	tropidatooorAdapter := tropidatooor.NewTropidatooorAdapter(*tropidatooorUrl)
 	mountConfig, err := tropidatooorAdapter.DataRequest(ctx, stakerConfig.DataBackendName)
@@ -83,4 +86,29 @@ func main() {
 	}
 
 	logger.InfoWithPrefix(logPrefix, "Test run completed successfully")
+}
+
+// helper to pretty print staker config
+func printStakerConfig(prefix string, sc domain.StakerConfig) {
+	logger.InfoWithPrefix(prefix, "StakerConfig:")
+	logger.InfoWithPrefix(prefix, "  ExecutionDnpName: %s", sc.ExecutionDnpName)
+	logger.InfoWithPrefix(prefix, "  ConsensusDnpName: %s", sc.ConsensusDnpName)
+	logger.InfoWithPrefix(prefix, "  Web3SignerDnpName: %s", sc.Web3SignerDnpName)
+	logger.InfoWithPrefix(prefix, "  MevBoostDnpName: %s", sc.MevBoostDnpName)
+	logger.InfoWithPrefix(prefix, "  Network: %s", sc.Network)
+	logger.InfoWithPrefix(prefix, "  ExecutionContainerName: %s", sc.ExecutionContainerName)
+	logger.InfoWithPrefix(prefix, "  DataBackendName: %s", sc.DataBackendName)
+	logger.InfoWithPrefix(prefix, "  Urls:")
+	logger.InfoWithPrefix(prefix, "    ExecutionURL: %s", sc.Urls.ExecutionURL)
+	logger.InfoWithPrefix(prefix, "    BrainURL: %s", sc.Urls.BrainURL)
+	logger.InfoWithPrefix(prefix, "    BeaconchainURL: %s", sc.Urls.BeaconchainURL)
+	logger.InfoWithPrefix(prefix, "    DappmanagerURL: %s", sc.Urls.DappmanagerURL)
+	logger.InfoWithPrefix(prefix, "  Relays:")
+	if len(sc.Relays) == 0 {
+		logger.InfoWithPrefix(prefix, "    (none)")
+	} else {
+		for _, r := range sc.Relays {
+			logger.InfoWithPrefix(prefix, "    - %s", r)
+		}
+	}
 }
