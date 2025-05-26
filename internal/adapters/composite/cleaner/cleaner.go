@@ -6,6 +6,7 @@ import (
 	"clients-test/internal/adapters/apis/dappmanager"
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/execution"
+	"clients-test/internal/adapters/apis/tropidatooor"
 	"clients-test/internal/adapters/system/mount"
 	"clients-test/internal/application/domain"
 	"context"
@@ -13,22 +14,24 @@ import (
 )
 
 type CleanerAdapter struct {
-	Dappmanager *dappmanager.DappManagerAdapter
-	Execution   *execution.ExecutionAdapter
-	Brain       *brain.BrainAdapter
-	Beaconchain *beaconchain.BeaconchainAdapter
-	Docker      *docker.DockerAdapter
-	Mount       *mount.MountAdapter
+	Dappmanager  *dappmanager.DappManagerAdapter
+	Execution    *execution.ExecutionAdapter
+	Brain        *brain.BrainAdapter
+	Beaconchain  *beaconchain.BeaconchainAdapter
+	Docker       *docker.DockerAdapter
+	Mount        *mount.MountAdapter
+	Tropidatooor *tropidatooor.TropidatooorAdapter
 }
 
-func NewCleanerAdapter(dappmanager *dappmanager.DappManagerAdapter, execution *execution.ExecutionAdapter, brain *brain.BrainAdapter, beaconchain *beaconchain.BeaconchainAdapter, docker *docker.DockerAdapter, mount *mount.MountAdapter) *CleanerAdapter {
+func NewCleanerAdapter(dappmanager *dappmanager.DappManagerAdapter, execution *execution.ExecutionAdapter, brain *brain.BrainAdapter, beaconchain *beaconchain.BeaconchainAdapter, docker *docker.DockerAdapter, mount *mount.MountAdapter, tropidatooor *tropidatooor.TropidatooorAdapter) *CleanerAdapter {
 	return &CleanerAdapter{
-		Dappmanager: dappmanager,
-		Execution:   execution,
-		Brain:       brain,
-		Beaconchain: beaconchain,
-		Docker:      docker,
-		Mount:       mount,
+		Dappmanager:  dappmanager,
+		Execution:    execution,
+		Brain:        brain,
+		Beaconchain:  beaconchain,
+		Docker:       docker,
+		Mount:        mount,
+		Tropidatooor: tropidatooor,
 	}
 }
 
@@ -40,6 +43,11 @@ func (e *CleanerAdapter) CleanEnvironment(ctx context.Context, stakerConfig doma
 		if err := e.Mount.UnmountNFS(ctx, volumeTarget); err != nil {
 			return fmt.Errorf("failed to unmount NFS: %w", err)
 		}
+	}
+
+	err = e.Tropidatooor.DataRelease(ctx, mountConfig.Id)
+	if err != nil {
+		fmt.Printf("failed to release data for uniqueId %s: %v\n", mountConfig.Id, err)
 	}
 
 	// Remove non-core packages. Web3signer volume is not removed to persist the keys
