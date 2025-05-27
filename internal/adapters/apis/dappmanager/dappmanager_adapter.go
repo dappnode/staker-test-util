@@ -3,6 +3,7 @@ package dappmanager
 import (
 	"bytes"
 	"clients-test/internal/application/domain"
+	"clients-test/internal/logger"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,19 +28,24 @@ func NewDappManagerAdapter() *DappManagerAdapter {
 
 // Ping sends a ping request to the DappManager API with context
 func (d *DappManagerAdapter) Ping(ctx context.Context) error {
+	logger.Debug("[DappManagerAdapter] Ping: url=%s", d.baseURL+"/ping")
 	req, err := http.NewRequestWithContext(ctx, "GET", d.baseURL+"/ping", nil)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] Ping: failed to create request: %v", err)
 		return err
 	}
 	resp, err := d.client.Do(req)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] Ping: request failed: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		logger.Error("[DappManagerAdapter] Ping: non-200 status: %s", resp.Status)
 		return fmt.Errorf("ping failed: %s", resp.Status)
 	}
+	logger.Debug("[DappManagerAdapter] Ping: success")
 	return nil
 }
 
@@ -47,22 +53,27 @@ func (d *DappManagerAdapter) Ping(ctx context.Context) error {
 func (d *DappManagerAdapter) PackageInstall(ctx context.Context, pkg domain.Pkg) error {
 	url := d.baseURL + "/packageInstall"
 	payload := fmt.Sprintf(`{"name": "%s", "version": "%s", "userSettings": {}, "options": {"BYPASS_CORE_RESTRICTION": true, "BYPASS_SIGNED_RESTRICTION": true}}`, pkg.DnpName, pkg.Version)
+	logger.Debug("[DappManagerAdapter] PackageInstall: url=%s payload=%s", url, payload)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader([]byte(payload)))
 	if err != nil {
+		logger.Error("[DappManagerAdapter] PackageInstall: failed to create request: %v", err)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := d.client.Do(req)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] PackageInstall: request failed: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		logger.Error("[DappManagerAdapter] PackageInstall: non-200 status: %s", resp.Status)
 		return fmt.Errorf("package install failed: %s", resp.Status)
 	}
+	logger.Debug("[DappManagerAdapter] PackageInstall: success for pkg=%+v", pkg)
 	return nil
 }
 
@@ -84,40 +95,46 @@ type StakerConfigGetMinimal struct {
 func (d *DappManagerAdapter) GetStakerConfig(ctx context.Context, network string) (StakerConfigGetMinimal, error) {
 	url := d.baseURL + "/stakerConfigGet"
 	payload := fmt.Sprintf(`{"network": "%s"}`, network)
+	logger.Debug("[DappManagerAdapter] GetStakerConfig: url=%s payload=%s", url, payload)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader([]byte(payload)))
 	if err != nil {
+		logger.Error("[DappManagerAdapter] GetStakerConfig: failed to create request: %v", err)
 		return StakerConfigGetMinimal{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := d.client.Do(req)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] GetStakerConfig: request failed: %v", err)
 		return StakerConfigGetMinimal{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		logger.Error("[DappManagerAdapter] GetStakerConfig: non-200 status: %s", resp.Status)
 		return StakerConfigGetMinimal{}, fmt.Errorf("get staker config failed: %s", resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] GetStakerConfig: failed to read response body: %v", err)
 		return StakerConfigGetMinimal{}, err
 	}
 
 	var result StakerConfigGetMinimal
 	err = json.Unmarshal(bodyBytes, &result)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] GetStakerConfig: failed to unmarshal response: %v", err)
 		return StakerConfigGetMinimal{}, err
 	}
+	logger.Debug("[DappManagerAdapter] GetStakerConfig: result=%+v", result)
 	return result, nil
 }
 
 // SetStakerConfig sets the staker configuration on the DappManager API with context
 func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, stakerClients domain.StakerConfig) error {
 	url := d.baseURL + "/stakerConfigSet"
-	// only include the fields we care about under the `stakerConfig` key
 	payload := map[string]interface{}{
 		"stakerConfig": map[string]interface{}{
 			"network":           stakerClients.Network,
@@ -130,31 +147,36 @@ func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, stakerClients 
 	}
 	jsonBytes, err := json.Marshal(payload)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] SetStakerConfig: failed to marshal payload: %v", err)
 		return err
 	}
+	logger.Debug("[DappManagerAdapter] SetStakerConfig: url=%s payload=%s", url, string(jsonBytes))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBytes))
 	if err != nil {
+		logger.Error("[DappManagerAdapter] SetStakerConfig: failed to create request: %v", err)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := d.client.Do(req)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] SetStakerConfig: request failed: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		logger.Error("[DappManagerAdapter] SetStakerConfig: non-200 status: %s", resp.Status)
 		return fmt.Errorf("set staker config failed: %s", resp.Status)
 	}
+	logger.Debug("[DappManagerAdapter] SetStakerConfig: success for stakerClients=%+v", stakerClients)
 	return nil
 }
 
 // removePackage removes a package from the dappnode with context
 func (d *DappManagerAdapter) removePackage(ctx context.Context, dnpName string, deleteVolumes *bool) error {
 	url := d.baseURL + "/packageRemove"
-	// Build request body
 	type removeBody struct {
 		DnpName       string `json:"dnpName"`
 		DeleteVolumes *bool  `json:"deleteVolumes,omitempty"`
@@ -165,24 +187,30 @@ func (d *DappManagerAdapter) removePackage(ctx context.Context, dnpName string, 
 	}
 	jsonBytes, err := json.Marshal(body)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] removePackage: failed to marshal body: %v", err)
 		return err
 	}
+	logger.Debug("[DappManagerAdapter] removePackage: url=%s body=%s", url, string(jsonBytes))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBytes))
 	if err != nil {
+		logger.Error("[DappManagerAdapter] removePackage: failed to create request: %v", err)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := d.client.Do(req)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] removePackage: request failed: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		logger.Error("[DappManagerAdapter] removePackage: non-200 status: %s", resp.Status)
 		return fmt.Errorf("remove package failed: %s", resp.Status)
 	}
+	logger.Debug("[DappManagerAdapter] removePackage: success for dnpName=%s", dnpName)
 	return nil
 }
 
@@ -195,29 +223,35 @@ type installedPackageMinimal struct {
 // getPackages retrieves the list of installed packages from the DappManager API with context
 func (d *DappManagerAdapter) getPackages(ctx context.Context) ([]installedPackageMinimal, error) {
 	url := d.baseURL + "/packagesGet"
+	logger.Debug("[DappManagerAdapter] getPackages: url=%s", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] getPackages: failed to create request: %v", err)
 		return nil, err
 	}
 	resp, err := d.client.Do(req)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] getPackages: request failed: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		logger.Error("[DappManagerAdapter] getPackages: non-200 status: %s", resp.Status)
 		return nil, fmt.Errorf("get packages failed: %s", resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] getPackages: failed to read response body: %v", err)
 		return nil, err
 	}
 
 	var allPackages []map[string]interface{}
 	err = json.Unmarshal(bodyBytes, &allPackages)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] getPackages: failed to unmarshal response: %v", err)
 		return nil, err
 	}
 
@@ -230,13 +264,16 @@ func (d *DappManagerAdapter) getPackages(ctx context.Context) ([]installedPackag
 			IsCore:  isCore,
 		})
 	}
+	logger.Debug("[DappManagerAdapter] getPackages: result=%+v", result)
 	return result, nil
 }
 
 // RemoveNonCorePackages removes all non-core packages from the Dappnode to clean up the system with context
 func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) error {
+	logger.Debug("[DappManagerAdapter] RemoveNonCorePackages: called")
 	packages, err := d.getPackages(ctx)
 	if err != nil {
+		logger.Error("[DappManagerAdapter] RemoveNonCorePackages: failed to get packages: %v", err)
 		return err
 	}
 	for _, pkg := range packages {
@@ -247,11 +284,14 @@ func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) error {
 				deleteVolumes = false
 			}
 
+			logger.Debug("[DappManagerAdapter] RemoveNonCorePackages: removing dnpName=%s deleteVolumes=%v", pkg.DnpName, deleteVolumes)
 			err := d.removePackage(ctx, pkg.DnpName, &deleteVolumes)
 			if err != nil {
+				logger.Error("[DappManagerAdapter] RemoveNonCorePackages: failed to remove package %s: %v", pkg.DnpName, err)
 				return fmt.Errorf("failed to remove package %s: %w", pkg.DnpName, err)
 			}
 		}
 	}
+	logger.Debug("[DappManagerAdapter] RemoveNonCorePackages: success")
 	return nil
 }
