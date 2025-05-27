@@ -94,15 +94,15 @@ func (b *BeaconchainAdapter) getBlockHeader(ctx context.Context, blockID string)
 	return &result, nil
 }
 
-func (b *BeaconchainAdapter) getEpochFinalized(ctx context.Context, blockID string) (uint64, error) {
+func (b *BeaconchainAdapter) getEpochHead(ctx context.Context, blockID string) (uint64, error) {
 	header, err := b.getBlockHeader(ctx, blockID)
 	if err != nil {
-		logger.ErrorWithPrefix(b.logPrefix, "getEpochFinalized: failed to get block header for blockID %s: %v", blockID, err)
+		logger.ErrorWithPrefix(b.logPrefix, "getEpochHead: failed to get block header for blockID %s: %v", blockID, err)
 		return 0, fmt.Errorf("failed to get block header for blockID %s: %w", blockID, err)
 	}
 	slot := header.Data.Header.Message.Slot
 	epoch := getEpochFromSlot(slot)
-	logger.DebugWithPrefix(b.logPrefix, "getEpochFinalized: slot=%s epoch=%d", slot, epoch)
+	logger.DebugWithPrefix(b.logPrefix, "getEpochHead: slot=%s epoch=%d", slot, epoch)
 	return epoch, nil
 }
 
@@ -120,9 +120,9 @@ func parseInt(slot string) uint64 {
 
 // GetValidatorLiveness retrieves validator liveness for the current epoch and given validator indexes
 func (b *BeaconchainAdapter) GetValidatorLiveness(ctx context.Context, indexes []string) (map[string]bool, error) {
-	epoch, err := b.getEpochFinalized(ctx, "finalized")
+	epoch, err := b.getEpochHead(ctx, "head")
 	if err != nil {
-		logger.ErrorWithPrefix(b.logPrefix, "GetValidatorLiveness: failed to get epoch finalized: %v", err)
+		logger.ErrorWithPrefix(b.logPrefix, "GetValidatorLiveness: failed to get epoch head: %v", err)
 		return nil, err
 	}
 	// Prepare POST request body as JSON array of indices
