@@ -280,11 +280,12 @@ func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) error {
 	}
 	for _, pkg := range packages {
 		if !pkg.IsCore {
-			deleteVolumes := true
-			// Do not remove web3signer volumes
-			if strings.Contains(pkg.DnpName, "web3signer") {
-				deleteVolumes = false
+			// skip if pkg.DnpName includes web3signer or mev-boost
+			if strings.Contains(pkg.DnpName, "web3signer") || strings.Contains(pkg.DnpName, "mev-boost") {
+				logger.DebugWithPrefix(d.logPrefix, "RemoveNonCorePackages: skipping package %s as it is web3signer or mev-boost", pkg.DnpName)
+				continue
 			}
+			deleteVolumes := true
 
 			logger.DebugWithPrefix(d.logPrefix, "RemoveNonCorePackages: removing dnpName=%s deleteVolumes=%v", pkg.DnpName, deleteVolumes)
 			err := d.removePackage(ctx, pkg.DnpName, &deleteVolumes)
