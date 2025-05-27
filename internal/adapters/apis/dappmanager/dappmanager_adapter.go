@@ -143,7 +143,7 @@ func (d *DappManagerAdapter) SetStakerConfig(ctx context.Context, stakerClients 
 			"executionDnpName":  stakerClients.ExecutionDnpName,
 			"consensusDnpName":  stakerClients.ConsensusDnpName,
 			"mevBoostDnpName":   stakerClients.MevBoostDnpName,
-			"web3SignerDnpName": stakerClients.Web3SignerDnpName,
+			"web3signerDnpName": stakerClients.Web3SignerDnpName,
 			"relays":            stakerClients.Relays,
 		},
 	}

@@ -10,7 +10,7 @@ import (
 type StakerConfig struct {
 	ExecutionDnpName       string   `json:"executionDnpName"`
 	ConsensusDnpName       string   `json:"consensusDnpName"`
-	Web3SignerDnpName      string   `json:"web3SignerDnpName"`
+	Web3SignerDnpName      string   `json:"web3signerDnpName"`
 	MevBoostDnpName        string   `json:"mevBoostDnpName"`
 	Relays                 []string `json:"relays,omitempty"` // Optional, can be empty
 	Network                string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
