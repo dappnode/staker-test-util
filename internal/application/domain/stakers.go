@@ -44,7 +44,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		urls = Urls{
 			ExecutionURL:   "http://execution.gnosis.dncore.dappnode:8545",
 			BrainURL:       "http://brain.web3signer-gnosis.dappnode:5000",
-			BeaconchainURL: "http://beaconchain.gnosis.dncore.dappnode:3500",
+			BeaconchainURL: "http://beacon-chain.gnosis.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:7000",
 		}
 		dataBackend = "nethermind-gnosis"
@@ -57,7 +57,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		urls = Urls{
 			ExecutionURL:   "http://execution.mainnet.dncore.dappnode:8545",
 			BrainURL:       "http://brain.web3signer.dappnode:5000",
-			BeaconchainURL: "http://beaconchain.mainnet.dncore.dappnode:3500",
+			BeaconchainURL: "http://beacon-chain.mainnet.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:7000",
 		}
 		dataBackend = "geth-mainnet"
@@ -70,7 +70,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		urls = Urls{
 			ExecutionURL:   "http://execution.lukso.dncore.dappnode:8545",
 			BrainURL:       "http://brain.web3signer-lukso.dappnode:5000",
-			BeaconchainURL: "http://beaconchain.lukso.dncore.dappnode:3500",
+			BeaconchainURL: "http://beacon-chain.lukso.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:7000",
 		}
 		dataBackend = "geth-lukso"
@@ -83,7 +83,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		urls = Urls{
 			ExecutionURL:   "http://execution.hoodi.dncore.dappnode:8545",
 			BrainURL:       "http://brain.web3signer-hoodi.dappnode:5000",
-			BeaconchainURL: "http://beaconchain.hoodi.dncore.dappnode:3500",
+			BeaconchainURL: "http://beacon-chain.hoodi.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:8080",
 		}
 		dataBackend = "geth-hoodi"
