@@ -30,7 +30,7 @@ func NewBeaconchainAdapter(beaconChainUrl string) *BeaconchainAdapter {
 // GetIsSyncing retrieves the syncing status from the beacon node with context
 func (b *BeaconchainAdapter) GetIsSyncing(ctx context.Context) (bool, error) {
 	url := fmt.Sprintf("%s/eth/v1/node/syncing", b.beaconChainUrl)
-	logger.Debug("[BeaconchainAdapter] GetIsSyncing: url=%s", url)
+	logger.DebugWithPrefix(b.logPrefix, "GetIsSyncing: url=%s", url)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		logger.ErrorWithPrefix(b.logPrefix, "GetIsSyncing: failed to create request: %v", err)
@@ -73,7 +73,7 @@ type blockHeaderResponse struct {
 // getBlockHeader retrieves the block header for a given block ID
 func (b *BeaconchainAdapter) getBlockHeader(ctx context.Context, blockID string) (*blockHeaderResponse, error) {
 	url := fmt.Sprintf("%s/eth/v1/beacon/headers/%s", b.beaconChainUrl, blockID)
-	logger.Debug("[BeaconchainAdapter] getBlockHeader: url=%s", url)
+	logger.DebugWithPrefix(b.logPrefix, "getBlockHeader: url=%s", url)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		logger.ErrorWithPrefix(b.logPrefix, "getBlockHeader: failed to create request: %v", err)
