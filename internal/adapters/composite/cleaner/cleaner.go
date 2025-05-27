@@ -51,9 +51,9 @@ func (e *CleanerAdapter) CleanEnvironment(ctx context.Context, stakerConfig doma
 	}
 
 	// Remove non-core packages. Web3signer volume is not removed to persist the keys
-	err = e.Dappmanager.RemoveNonCorePackages(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to remove non-core packages: %w", err)
+	errors := e.Dappmanager.RemoveNonCorePackages(ctx)
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to remove non-core packages: %v", errors)
 	}
 
 	return nil

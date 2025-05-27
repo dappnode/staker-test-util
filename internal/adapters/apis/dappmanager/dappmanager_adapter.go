@@ -271,13 +271,14 @@ func (d *DappManagerAdapter) getPackages(ctx context.Context) ([]installedPackag
 }
 
 // RemoveNonCorePackages removes all non-core packages from the Dappnode to clean up the system with context
-func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) error {
+func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) []error {
 	logger.DebugWithPrefix(d.logPrefix, "RemoveNonCorePackages: called")
 	packages, err := d.getPackages(ctx)
 	if err != nil {
 		logger.ErrorWithPrefix(d.logPrefix, "RemoveNonCorePackages: failed to get packages: %v", err)
-		return err
+		return []error{err}
 	}
+	var errors []error
 	for _, pkg := range packages {
 		if !pkg.IsCore {
 			// skip if pkg.DnpName includes web3signer or mev-boost
@@ -291,10 +292,15 @@ func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) error {
 			err := d.removePackage(ctx, pkg.DnpName, &deleteVolumes)
 			if err != nil {
 				logger.ErrorWithPrefix(d.logPrefix, "RemoveNonCorePackages: failed to remove package %s: %v", pkg.DnpName, err)
-				return fmt.Errorf("failed to remove package %s: %w", pkg.DnpName, err)
+				errors = append(errors, fmt.Errorf("failed to remove package %s: %w", pkg.DnpName, err))
+				continue
 			}
 		}
 	}
+	if len(errors) > 0 {
+		return errors
+	}
+
 	logger.DebugWithPrefix(d.logPrefix, "RemoveNonCorePackages: success")
 	return nil
 }
