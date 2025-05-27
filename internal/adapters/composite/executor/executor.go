@@ -59,7 +59,7 @@ func (t *ExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 // It only errors out after maxEpochs, returning the last error encountered.
 func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 	const (
-		maxEpochs    = 3
+		maxEpochs    = 5
 		epochSeconds = 6*60 + 24 // 384s
 	)
 	epochDuration := time.Duration(epochSeconds) * time.Second
