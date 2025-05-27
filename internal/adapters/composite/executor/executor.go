@@ -29,7 +29,7 @@ func NewExecutorAdapter(execution *execution.ExecutionAdapter, brain *brain.Brai
 func (t *ExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 	const (
 		maxTries = 60
-		sleepDur = 3 * time.Second
+		sleepDur = 6 * time.Second
 	)
 	var lastErr error
 
@@ -60,7 +60,7 @@ func (t *ExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 func (t *ExecutorAdapter) waitForBeaconchainSync(ctx context.Context) error {
 	const (
 		maxTries = 60
-		sleepDur = 3 * time.Second
+		sleepDur = 6 * time.Second
 	)
 	var lastErr error
 
@@ -80,6 +80,7 @@ func (t *ExecutorAdapter) waitForBeaconchainSync(ctx context.Context) error {
 	if lastErr != nil {
 		return lastErr
 	}
+
 	return fmt.Errorf("beaconchain did not sync after %d attempts", maxTries)
 }
 
@@ -162,10 +163,10 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 
 // ExecuteTest runs both sync and liveness checks in sequence
 func (t *ExecutorAdapter) ExecuteTest(ctx context.Context) error {
-	if err := t.waitForExecutionSync(ctx); err != nil {
+	if err := t.waitForBeaconchainSync(ctx); err != nil {
 		return err
 	}
-	if err := t.waitForBeaconchainSync(ctx); err != nil {
+	if err := t.waitForExecutionSync(ctx); err != nil {
 		return err
 	}
 	if err := t.waitForValidatorLiveness(ctx); err != nil {

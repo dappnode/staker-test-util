@@ -125,21 +125,21 @@ func (b *BeaconchainAdapter) GetValidatorLiveness(ctx context.Context, indexes [
 		logger.ErrorWithPrefix(b.logPrefix, "GetValidatorLiveness: failed to get epoch finalized: %v", err)
 		return nil, err
 	}
-	// Join indexes as comma-separated string
-	joined := ""
-	for i, idx := range indexes {
-		if i > 0 {
-			joined += ","
-		}
-		joined += idx
+	// Prepare POST request body as JSON array of indices
+	jsonBytes, err := json.Marshal(indexes)
+	if err != nil {
+		logger.ErrorWithPrefix(b.logPrefix, "GetValidatorLiveness: failed to marshal request body: %v", err)
+		return nil, err
 	}
-	url := fmt.Sprintf("%s/eth/v1/validator/liveness/%d?indices=%s", b.beaconChainUrl, epoch, joined)
-	logger.DebugWithPrefix(b.logPrefix, "GetValidatorLiveness: url=%s", url)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	url := fmt.Sprintf("%s/eth/v1/validator/liveness/%d", b.beaconChainUrl, epoch)
+	logger.DebugWithPrefix(b.logPrefix, "GetValidatorLiveness: url=%s body=%v", url, indexes)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBytes))
 	if err != nil {
 		logger.ErrorWithPrefix(b.logPrefix, "GetValidatorLiveness: failed to create request: %v", err)
 		return nil, err
 	}
+	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := b.client.Do(req)
 	if err != nil {
 		logger.ErrorWithPrefix(b.logPrefix, "GetValidatorLiveness: request failed: %v", err)
