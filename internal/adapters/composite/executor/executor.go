@@ -55,6 +55,34 @@ func (t *ExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 	return fmt.Errorf("execution client did not sync after %d attempts", maxTries)
 }
 
+// waitForBeaconchainSync waits for the beacon chain to be synced.
+// It retries fetching the sync status up to maxTries, returning the last error encountered.
+func (t *ExecutorAdapter) waitForBeaconchainSync(ctx context.Context) error {
+	const (
+		maxTries = 60
+		sleepDur = 3 * time.Second
+	)
+	var lastErr error
+
+	for i := 0; i < maxTries; i++ {
+		syncing, err := t.Beaconchain.GetIsSyncing(ctx)
+		if err != nil {
+			lastErr = fmt.Errorf("check beaconchain sync attempt %d failed: %w", i+1, err)
+		} else if !syncing {
+			return nil // synced!
+		}
+
+		if i < maxTries-1 {
+			time.Sleep(sleepDur)
+		}
+	}
+
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("beaconchain did not sync after %d attempts", maxTries)
+}
+
 // waitForValidatorLiveness waits for all validators to become live up to maxEpochs.
 // It only errors out after maxEpochs, returning the last error encountered.
 func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
@@ -135,6 +163,9 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 // ExecuteTest runs both sync and liveness checks in sequence
 func (t *ExecutorAdapter) ExecuteTest(ctx context.Context) error {
 	if err := t.waitForExecutionSync(ctx); err != nil {
+		return err
+	}
+	if err := t.waitForBeaconchainSync(ctx); err != nil {
 		return err
 	}
 	if err := t.waitForValidatorLiveness(ctx); err != nil {
