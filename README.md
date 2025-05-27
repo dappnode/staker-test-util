@@ -6,3 +6,4 @@
 - [x] Add to ensurer wait for consensus sync.
 - [ ] Consider adding to report beaconcha validator url
 - [ ] Add a handle signal to stop the test gracefully: release mount data if any, remove packages if any installed. -> run cleaner
+- [ ] Consider setting keystore and password through github secrets.

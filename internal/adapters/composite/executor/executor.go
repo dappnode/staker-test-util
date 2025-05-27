@@ -88,16 +88,16 @@ func (t *ExecutorAdapter) waitForBeaconchainSync(ctx context.Context) error {
 // It only errors out after maxEpochs, returning the last error encountered.
 func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 	const (
-		maxEpochs    = 5
-		epochSeconds = 6*60 + 24 // 384s
+		maxSlots    = 32 * 5 // 384s
+		slotSeconds = 12
 	)
-	epochDuration := time.Duration(epochSeconds) * time.Second
+	slotDuration := time.Duration(slotSeconds) * time.Second
 
 	var lastErr error
 
 	// First, we need pubkeys and indexes—retry these as well.
 	var pubkeys []string
-	for i := 0; i < maxEpochs; i++ {
+	for i := 0; i < maxSlots; i++ {
 		var err error
 		pubkeys, err = t.Brain.GetValidatorsPubkeys(ctx)
 		if err != nil {
@@ -107,8 +107,8 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 		} else {
 			break
 		}
-		if i < maxEpochs-1 {
-			time.Sleep(epochDuration)
+		if i < maxSlots-1 {
+			time.Sleep(slotDuration)
 		}
 	}
 	if len(pubkeys) == 0 {
@@ -116,7 +116,7 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 	}
 
 	var indexes []string
-	for i := 0; i < maxEpochs; i++ {
+	for i := 0; i < maxSlots; i++ {
 		var err error
 		indexes, err := t.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
 		if err != nil {
@@ -126,8 +126,8 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 		} else {
 			break
 		}
-		if i < maxEpochs-1 {
-			time.Sleep(epochDuration)
+		if i < maxSlots-1 {
+			time.Sleep(slotDuration)
 		}
 	}
 	if len(indexes) == 0 {
@@ -135,7 +135,7 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 	}
 
 	// Now poll liveness over up to maxEpochs
-	for epoch := 0; epoch < maxEpochs; epoch++ {
+	for epoch := 0; epoch < maxSlots; epoch++ {
 		liveness, err := t.Beaconchain.GetValidatorLiveness(ctx, indexes)
 		if err != nil {
 			lastErr = fmt.Errorf("get validator liveness epoch %d failed: %w", epoch, err)
@@ -153,8 +153,8 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 			lastErr = fmt.Errorf("epoch %d: some validators still not live", epoch)
 		}
 
-		if epoch < maxEpochs-1 {
-			time.Sleep(epochDuration)
+		if epoch < maxSlots-1 {
+			time.Sleep(slotDuration)
 		}
 	}
 
