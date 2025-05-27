@@ -2,6 +2,7 @@ package execution
 
 import (
 	"bytes"
+	"clients-test/internal/logger"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,21 +13,24 @@ import (
 // It interacts with an Ethereum execution client via JSON-RPC
 // See: https://ethereum.github.io/execution-apis/api-documentation/
 type ExecutionAdapter struct {
-	baseURL string
-	client  *http.Client
+	baseURL   string
+	client    *http.Client
+	logPrefix string
 }
 
 // NewExecutionAdapter creates a new ExecutionAdapter
 func NewExecutionAdapter(baseURL string) *ExecutionAdapter {
 	return &ExecutionAdapter{
-		baseURL: baseURL,
-		client:  &http.Client{},
+		baseURL:   baseURL,
+		client:    &http.Client{},
+		logPrefix: "ExecutionAdapter",
 	}
 }
 
 // GetIsSyncing retrieves the syncing status from the execution client with context
 func (e *ExecutionAdapter) GetIsSyncing(ctx context.Context) (bool, error) {
 	url := e.baseURL
+	logger.DebugWithPrefix(e.logPrefix, "GetIsSyncing: url=%s", url)
 	// JSON-RPC request body for eth_syncing
 	body := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -36,22 +40,26 @@ func (e *ExecutionAdapter) GetIsSyncing(ctx context.Context) (bool, error) {
 	}
 	jsonBytes, err := json.Marshal(body)
 	if err != nil {
+		logger.ErrorWithPrefix(e.logPrefix, "GetIsSyncing: failed to marshal body: %v", err)
 		return false, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBytes))
 	if err != nil {
+		logger.ErrorWithPrefix(e.logPrefix, "GetIsSyncing: failed to create request: %v", err)
 		return false, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := e.client.Do(req)
 	if err != nil {
+		logger.ErrorWithPrefix(e.logPrefix, "GetIsSyncing: request failed: %v", err)
 		return false, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		logger.ErrorWithPrefix(e.logPrefix, "GetIsSyncing: non-200 status: %s", resp.Status)
 		return false, fmt.Errorf("eth_syncing failed: %s", resp.Status)
 	}
 
@@ -59,9 +67,11 @@ func (e *ExecutionAdapter) GetIsSyncing(ctx context.Context) (bool, error) {
 		Result interface{} `json:"result"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
+		logger.ErrorWithPrefix(e.logPrefix, "GetIsSyncing: failed to decode response: %v", err)
 		return false, err
 	}
 
+	logger.DebugWithPrefix(e.logPrefix, "GetIsSyncing: result=%+v", rpcResp.Result)
 	// Per spec, result is either false (not syncing) or an object (syncing)
 	if b, ok := rpcResp.Result.(bool); ok {
 		return b, nil
