@@ -10,7 +10,7 @@ import (
 
 // BrainAdapter implements the BrainPort interface
 // It interacts with the brain service to fetch validator indexes
-// Example endpoint: /v0/brain/validators?tag=solo&format=index
+// Example endpoint: /api/v0/brain/validators?tag=solo&format=index
 type BrainAdapter struct {
 	brainUrl  string
 	client    *http.Client
@@ -28,7 +28,7 @@ func NewBrainAdapter(brainUrl string) *BrainAdapter {
 
 // GetValidatorsPubkeys fetches the validator public keys from the brain service with context
 func (b *BrainAdapter) GetValidatorsPubkeys(ctx context.Context) ([]string, error) {
-	url := fmt.Sprintf("%s/v0/brain/validators?tag=solo&format=pubkey", b.brainUrl)
+	url := fmt.Sprintf("%s/api/v0/brain/validators?tag=solo&format=pubkey", b.brainUrl)
 	logger.DebugWithPrefix(b.logPrefix, "GetValidatorsPubkeys: url=%s", url)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

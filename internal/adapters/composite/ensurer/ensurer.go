@@ -53,7 +53,8 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, mountConfig doma
 		return fmt.Errorf("failed to stop container and get volume: %w", err)
 	}
 
-	if err := e.Mount.MountNFS(ctx, mountConfig.Path, volumeTarget); err != nil {
+	// TODO: temporary fix
+	if err := e.Mount.MountNFS(ctx, mountConfig.Path+"/.ethereum/hoodi", volumeTarget); err != nil {
 		return fmt.Errorf("failed to mount NFS: %w", err)
 	}
 	if err := e.Docker.StartContainer(ctx, stakerConfig.ExecutionContainerName); err != nil {
