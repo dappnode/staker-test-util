@@ -118,7 +118,7 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 	var indexes []string
 	for i := 0; i < maxSlots; i++ {
 		var err error
-		indexes, err := t.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
+		indexes, err = t.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
 		if err != nil {
 			lastErr = fmt.Errorf("get validator indexes attempt %d failed: %w", i+1, err)
 		} else if len(indexes) == 0 {
