@@ -5,4 +5,4 @@
 - [ ] Add to the report the clients used
 - [x] Add to ensurer wait for consensus sync.
 - [ ] Consider adding to report beaconcha validator url
-- [ ] Add a handle signal to stop the test gracefully: release mount data if any, remove packages if any installed.
+- [ ] Add a handle signal to stop the test gracefully: release mount data if any, remove packages if any installed. -> run cleaner
