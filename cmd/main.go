@@ -16,6 +16,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 var logPrefix = "MAIN"
@@ -23,7 +26,11 @@ var logPrefix = "MAIN"
 func main() {
 	logger.InfoWithPrefix(logPrefix, "Starting Notifications service")
 
-	// TODO: allow to set execution and consensus clients through flags
+	// Set up Ctrl+C (SIGINT) handler to call composite cleaner
+	cleanupDone := make(chan struct{})
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
 	// CLI flags
 	ipfsGatewayUrl := flag.String("ipfs-gateway-url", "", "IPFS gateway URL (required)")
 	tropidatooorUrl := flag.String("tropidatooor-url", "", "Tropidatooor API URL (required)")
@@ -68,7 +75,7 @@ func main() {
 	}
 
 	// Initialize the unified test adapter (now also initializes composites internally)
-	composite := composite.NewCompositeAdapter(
+	compositeAdapter := composite.NewCompositeAdapter(
 		dappManagerAdapter,
 		brainAdapter,
 		tropidatooorAdapter,
@@ -79,14 +86,30 @@ func main() {
 		ipfsAdapter,
 	)
 
+	// Ctrl+C handler: call CleanEnvironment on composite
+	go func() {
+		sig := <-sigs
+		logger.InfoWithPrefix(logPrefix, "Received signal: %v, running cleanup...", sig)
+		err := compositeAdapter.CleanEnvironment(ctx, stakerConfig, *mountConfig)
+		if err != nil {
+			logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", err)
+		} else {
+			logger.InfoWithPrefix(logPrefix, "Cleanup completed successfully")
+		}
+		close(cleanupDone)
+		os.Exit(1)
+	}()
+
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(composite)
+	testRunner := services.NewTestRunner(compositeAdapter)
 
 	if err := testRunner.RunTest(ctx, *mountConfig, stakerConfig, pkg); err != nil {
 		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
 	}
 
 	logger.InfoWithPrefix(logPrefix, "Test run completed successfully")
+	// Wait for cleanup if triggered
+	<-cleanupDone
 }
 
 // helper to pretty print staker config

@@ -37,24 +37,32 @@ func NewCleanerAdapter(dappmanager *dappmanager.DappManagerAdapter, execution *e
 
 // CleanEnvironment release the mounted volume and remove non-core packages
 func (e *CleanerAdapter) CleanEnvironment(ctx context.Context, stakerConfig domain.StakerConfig, mountConfig domain.Mount) error {
-	// Release the mounted volume
+	var errs []error
+
+	// Attempt to stop container and release mounted volume
 	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, stakerConfig.ExecutionContainerName)
-	if err == nil {
+	if err != nil {
+		errs = append(errs, fmt.Errorf("stop container failed: %w", err))
+	} else {
 		if err := e.Mount.UnmountNFS(ctx, volumeTarget); err != nil {
-			return fmt.Errorf("failed to unmount NFS: %w", err)
+			errs = append(errs, fmt.Errorf("failed to unmount NFS: %w", err))
 		}
 	}
 
-	err = e.Tropidatooor.DataRelease(ctx, mountConfig.Id)
-	if err != nil {
-		fmt.Printf("failed to release data for uniqueId %s: %v\n", mountConfig.Id, err)
+	// Attempt to release data
+	if err := e.Tropidatooor.DataRelease(ctx, mountConfig.Id); err != nil {
+		errs = append(errs, fmt.Errorf("failed to release data for uniqueId %s: %w", mountConfig.Id, err))
 	}
 
-	// Remove non-core packages. Web3signer volume is not removed to persist the keys
-	errors := e.Dappmanager.RemoveNonCorePackages(ctx)
-	if len(errors) > 0 {
-		return fmt.Errorf("failed to remove non-core packages: %v", errors)
+	// Attempt to remove non-core packages
+	pkgErrs := e.Dappmanager.RemoveNonCorePackages(ctx)
+	for _, pkgErr := range pkgErrs {
+		errs = append(errs, fmt.Errorf("remove non-core package failed: %w", pkgErr))
 	}
 
+	// Return combined error if any step failed
+	if len(errs) > 0 {
+		return fmt.Errorf("CleanEnvironment encountered errors: %v", errs)
+	}
 	return nil
 }
