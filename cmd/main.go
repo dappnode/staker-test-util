@@ -108,8 +108,6 @@ func main() {
 	}
 
 	logger.InfoWithPrefix(logPrefix, "Test run completed successfully")
-	// Wait for cleanup if triggered
-	<-cleanupDone
 }
 
 // helper to pretty print staker config
