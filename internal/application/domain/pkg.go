@@ -1,7 +1,8 @@
 package domain
 
 type Pkg struct {
-	DnpName     string
-	ServiceName string
-	Version     string
+	DnpName           string
+	ServiceName       string
+	ComposeVolumeName string
+	Version           string
 }
