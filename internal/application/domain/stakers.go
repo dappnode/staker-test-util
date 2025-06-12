@@ -32,7 +32,6 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 	var web3signer, mevboost string
 	var relays []string = nil
 	var urls Urls
-	var dataBackend string
 
 	switch network {
 	case "gnosis":
@@ -47,7 +46,6 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 			BeaconchainURL: "http://beacon-chain.gnosis.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:7000",
 		}
-		dataBackend = "nethermind-gnosis"
 	case "mainnet":
 		execClients = []string{"nethermind.public.dappnode.eth", "geth.dnp.dappnode.eth", "erigon.dnp.dappnode.eth", "reth.dnp.dappnode.eth", "besu.public.dappnode.eth"}
 		consClients = []string{"lighthouse.dnp.dappnode.eth", "prysm.dnp.dappnode.eth", "lodestar.dnp.dappnode.eth", "nimbus.dnp.dappnode.eth", "teku.dnp.dappnode.eth"}
@@ -60,7 +58,6 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 			BeaconchainURL: "http://beacon-chain.mainnet.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:7000",
 		}
-		dataBackend = "geth-mainnet"
 	case "lukso":
 		execClients = []string{"lukso-geth.dnp.dappnode.eth"}
 		consClients = []string{"prysm-lukso.dnp.dappnode.eth", "teku-luks.dnp.dappnode.eth"}
@@ -73,7 +70,6 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 			BeaconchainURL: "http://beacon-chain.lukso.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:7000",
 		}
-		dataBackend = "geth-lukso"
 	case "hoodi":
 		execClients = []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
 		consClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth", "lighthouse-hoodi.dnp.dappnode.eth"}
@@ -86,11 +82,22 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 			BeaconchainURL: "http://beacon-chain.hoodi.dncore.dappnode:3500",
 			DappmanagerURL: "http://dappmanager.dappnode:8080",
 		}
-		dataBackend = "geth-hoodi"
 	}
 
 	exec := matchOrRandom(pkg.DnpName, execClients)
 	cons := matchOrRandom(pkg.DnpName, consClients)
+
+	// List of known execution client short names
+	clientShortNames := []string{"geth", "nethermind", "erigon", "reth", "besu"}
+	execShort := "unknown"
+	for _, short := range clientShortNames {
+		if strings.Contains(exec, short) {
+			execShort = short
+			break
+		}
+	}
+	dataBackend := execShort + "-" + network
+
 	return StakerConfig{
 		ExecutionDnpName:       exec,
 		ConsensusDnpName:       cons,
