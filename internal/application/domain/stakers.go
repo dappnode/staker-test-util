@@ -16,6 +16,7 @@ type StakerConfig struct {
 	Network                string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
 	Urls                   Urls
 	ExecutionContainerName string // The name of the container to mount the NFS volume to
+	ExecutionVolumeName    string // The name of the volume to mount for execution client data
 	DataBackendName        string // The name of the backend to use for data requests
 }
 
@@ -107,6 +108,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		Network:                network,
 		Urls:                   urls,
 		ExecutionContainerName: executionContainerName(pkg.ServiceName, pkg.DnpName),
+		ExecutionVolumeName:    composeVolumeName(pkg.DnpName, pkg.ComposeVolumeName),
 		DataBackendName:        dataBackend,
 	}
 }
@@ -146,4 +148,10 @@ func shortDnpName(dnpName string) string {
 // Utility to get the execution container name from service and dnpName
 func executionContainerName(serviceName, dnpName string) string {
 	return fmt.Sprintf("DAppNodePackage-%s.%s.dnp.dappnode.eth", serviceName, shortDnpName(dnpName))
+}
+
+// Utility to get the docker volume name from dnpName and compose volume name
+// i.e hoodi-nethermind.dnp.dappnode.eth -> hoodi-netherminddnpdappnodeeth_<composeVolumeName>
+func composeVolumeName(dnpName, composeVolumeName string) string {
+	return fmt.Sprintf("%s_%s", strings.ReplaceAll(dnpName, ".", ""), composeVolumeName)
 }

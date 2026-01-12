@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"clients-test/internal/logger"
@@ -25,35 +24,37 @@ func NewDockerAdapter() (*DockerAdapter, error) {
 }
 
 // StopAndGetVolumeTarget stops the container, checks for a single volume, and returns the volume target path
-func (d *DockerAdapter) StopAndGetVolumeTarget(ctx context.Context, containerName string) (string, error) {
+func (d *DockerAdapter) StopAndGetVolumeTarget(ctx context.Context, containerName string, containerVolumeName string) (string, error) {
 	logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: inspecting container %s", containerName)
 	containerJSON, err := d.cli.ContainerInspect(ctx, containerName)
 	if err != nil {
 		logger.ErrorWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: failed to inspect container: %v", err)
 		return "", fmt.Errorf("failed to inspect container: %w", err)
 	}
-	if len(containerJSON.Mounts) != 1 {
-		logger.ErrorWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: expected 1 volume, found %d", len(containerJSON.Mounts))
-		return "", fmt.Errorf("expected exactly one volume for container %s, but found %d", containerName, len(containerJSON.Mounts))
-	}
-	mount := containerJSON.Mounts[0]
-	if mount.Type != "volume" {
-		logger.ErrorWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: mount is not a docker volume, type=%s", mount.Type)
-		return "", errors.New("the mount is not a docker volume")
-	}
-	volumeName := mount.Name
-	volumeTarget := fmt.Sprintf("/var/lib/docker/volumes/%s/_data", volumeName)
-	logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: volumeName=%s volumeTarget=%s", volumeName, volumeTarget)
 
-	// Stop the container
-	logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: stopping container %s", containerName)
-	if err := d.cli.ContainerStop(ctx, containerName, container.StopOptions{}); err != nil {
-		logger.ErrorWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: failed to stop container: %v", err)
-		return "", fmt.Errorf("failed to stop container: %w", err)
-	}
-	logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: stopped container %s", containerName)
+	// the volumeName is the mount one which name is equal to the containerVolumeName, find it
+	// find the mount which name is equal to containerVolumeName
 
-	return volumeTarget, nil
+	for _, mount := range containerJSON.Mounts {
+		if mount.Name == containerVolumeName {
+			volumeName := mount.Name
+
+			volumeTarget := fmt.Sprintf("/var/lib/docker/volumes/%s/_data", volumeName)
+			logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: volumeName=%s volumeTarget=%s", volumeName, volumeTarget)
+
+			// Stop the container
+			logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: stopping container %s", containerName)
+			if err := d.cli.ContainerStop(ctx, containerName, container.StopOptions{}); err != nil {
+				logger.ErrorWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: failed to stop container: %v", err)
+				return "", fmt.Errorf("failed to stop container: %w", err)
+			}
+			logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: stopped container %s", containerName)
+
+			return volumeTarget, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find volume mount %s in container %s", containerVolumeName, containerName)
 }
 
 // StartContainer starts the given container

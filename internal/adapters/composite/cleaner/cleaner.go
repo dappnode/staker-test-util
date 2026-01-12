@@ -40,7 +40,7 @@ func (e *CleanerAdapter) CleanEnvironment(ctx context.Context, stakerConfig doma
 	var errs []error
 
 	// Attempt to stop container and release mounted volume
-	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, stakerConfig.ExecutionContainerName)
+	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, stakerConfig.ExecutionContainerName, stakerConfig.ExecutionVolumeName)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("stop container failed: %w", err))
 	} else {
