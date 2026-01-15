@@ -18,18 +18,23 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
 var logPrefix = "MAIN"
 
 func main() {
-	logger.InfoWithPrefix(logPrefix, "Starting Notifications service")
+	logger.InfoWithPrefix(logPrefix, "Starting staker clients test runner")
+	if err := run(); err != nil {
+		logger.ErrorWithPrefix(logPrefix, "%v", err)
+		os.Exit(1)
+	}
+}
 
-	// Set up Ctrl+C (SIGINT) handler to call composite cleaner
-	cleanupDone := make(chan struct{})
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+func run() (err error) {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	// CLI flags
 	ipfsGatewayUrl := flag.String("ipfs-gateway-url", "", "IPFS gateway URL (required)")
@@ -38,29 +43,59 @@ func main() {
 	flag.Parse()
 
 	if *ipfsGatewayUrl == "" || *tropidatooorUrl == "" || *ipfsHash == "" {
-		logger.FatalWithPrefix(logPrefix, "All flags --ipfs-gateway-url, --tropidatooor-url, and --ipfs-hash are required.")
+		return fmt.Errorf("all flags --ipfs-gateway-url, --tropidatooor-url, and --ipfs-hash are required")
 	}
 
-	ctx := context.Background()
+	// Ensure cleanup runs at most once. Guarded so it only runs after setup is ready.
+	var (
+		cleanupOnce    sync.Once
+		cleanupErr     error
+		compositeAdptr *composite.CompositeAdapter
+		mountConfig    *domain.Mount
+		stakerConfig   domain.StakerConfig
+	)
+
+	cleanup := func(reason string) error {
+		if compositeAdptr == nil || mountConfig == nil {
+			return nil
+		}
+		cleanupOnce.Do(func() {
+			logger.InfoWithPrefix(logPrefix, "Running cleanup (%s)...", reason)
+			cleanupErr = compositeAdptr.CleanEnvironment(ctx, stakerConfig, *mountConfig)
+			if cleanupErr != nil {
+				logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", cleanupErr)
+				return
+			}
+			logger.InfoWithPrefix(logPrefix, "Cleanup completed successfully")
+		})
+		return cleanupErr
+	}
+
+	defer func() {
+		cerr := cleanup("defer")
+		if err == nil && cerr != nil {
+			err = fmt.Errorf("cleanup failed: %w", cerr)
+		}
+	}()
 
 	// Fetch dnpName from ipfs hash
 	ipfsAdapter := ipfs.NewIPFSAdapter(ipfsGatewayUrl)
 	pkg, err := ipfsAdapter.GetDnpNameAndServiceName(ctx, *ipfsHash)
 	if err != nil {
-		logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
+		return fmt.Errorf("failed to get dnpName from IPFS hash: %w", err)
 	}
 
 	// Retrieve staker config based on pkg (dnpName and serviceName)
-	stakerConfig := domain.StakerConfigForNetwork(pkg)
+	stakerConfig = domain.StakerConfigForNetwork(pkg)
 
 	// print the staker config for debugging with each item on a new line
 	printStakerConfig(logPrefix, stakerConfig)
 
 	// Get mount path
 	tropidatooorAdapter := tropidatooor.NewTropidatooorAdapter(*tropidatooorUrl)
-	mountConfig, err := tropidatooorAdapter.DataRequest(ctx, stakerConfig.DataBackendName)
+	mountConfig, err = tropidatooorAdapter.DataRequest(ctx, stakerConfig.DataBackendName)
 	if err != nil {
-		logger.FatalWithPrefix(logPrefix, "Failed to get mount path: %v", err)
+		return fmt.Errorf("failed to get mount path: %w", err)
 	}
 
 	// Initialize API adapters
@@ -71,11 +106,11 @@ func main() {
 	executionAdapter := execution.NewExecutionAdapter(stakerConfig.Urls.ExecutionURL)
 	dockerAdapter, err := docker.NewDockerAdapter()
 	if err != nil {
-		logger.FatalWithPrefix(logPrefix, "Failed to init DockerAdapter: %v", err)
+		return fmt.Errorf("failed to init DockerAdapter: %w", err)
 	}
 
 	// Initialize the unified test adapter (now also initializes composites internally)
-	compositeAdapter := composite.NewCompositeAdapter(
+	compositeAdptr = composite.NewCompositeAdapter(
 		dappManagerAdapter,
 		brainAdapter,
 		tropidatooorAdapter,
@@ -86,28 +121,14 @@ func main() {
 		ipfsAdapter,
 	)
 
-	// Ctrl+C handler: call CleanEnvironment on composite
-	go func() {
-		sig := <-sigs
-		logger.InfoWithPrefix(logPrefix, "Received signal: %v, running cleanup...", sig)
-		err := compositeAdapter.CleanEnvironment(ctx, stakerConfig, *mountConfig)
-		if err != nil {
-			logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", err)
-		} else {
-			logger.InfoWithPrefix(logPrefix, "Cleanup completed successfully")
-		}
-		close(cleanupDone)
-		os.Exit(1)
-	}()
-
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(compositeAdapter)
-
+	testRunner := services.NewTestRunner(compositeAdptr)
 	if err := testRunner.RunTest(ctx, *mountConfig, stakerConfig, pkg); err != nil {
-		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
+		return err
 	}
 
 	logger.InfoWithPrefix(logPrefix, "Test run completed successfully")
+	return nil
 }
 
 // helper to pretty print staker config
