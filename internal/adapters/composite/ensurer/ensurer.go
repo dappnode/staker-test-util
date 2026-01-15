@@ -40,24 +40,25 @@ func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain
 }
 
 // EnsureEnvironment validates the environment and prepares it for testing.
-// It sets the staker config, installs the package, stops the container, mounts the NFS, and starts the container.
+// It sets the staker config, stops the container, mounts the NFS, starts the container, and updates the package.
 func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, mountConfig domain.Mount, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
 	if err := e.DappManager.SetStakerConfig(ctx, stakerConfig); err != nil {
 		return fmt.Errorf("failed to set staker config for DNP: %w", err)
-	}
-	if err := e.DappManager.PackageInstall(ctx, pkg); err != nil {
-		return fmt.Errorf("failed to install package: %w", err)
 	}
 	volumeTarget, err := e.Docker.StopAndGetVolumeTarget(ctx, stakerConfig.ExecutionContainerName, stakerConfig.ExecutionVolumeName)
 	if err != nil {
 		return fmt.Errorf("failed to stop container and get volume: %w", err)
 	}
-
+	// mount the NFS to the volume target before updating the package (if its a EC package it must start with same DB version)
 	if err := e.Mount.MountNFS(ctx, mountConfig.Path, volumeTarget); err != nil {
 		return fmt.Errorf("failed to mount NFS: %w", err)
 	}
 	if err := e.Docker.StartContainer(ctx, stakerConfig.ExecutionContainerName); err != nil {
 		return fmt.Errorf("failed to start container: %w", err)
+	}
+	// TODO: either if it is a EC or CC package should we wait here for the client to be synced to simulate real conditions?
+	if err := e.DappManager.PackageInstall(ctx, pkg); err != nil {
+		return fmt.Errorf("failed to install package: %w", err)
 	}
 	return nil
 }
