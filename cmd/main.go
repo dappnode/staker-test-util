@@ -7,9 +7,8 @@ import (
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/apis/tropidatooor"
+	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/adapters/composite"
-	"clients-test/internal/adapters/system/mount"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
 	"clients-test/internal/logger"
@@ -33,12 +32,11 @@ func main() {
 
 	// CLI flags
 	ipfsGatewayUrl := flag.String("ipfs-gateway-url", "", "IPFS gateway URL (required)")
-	tropidatooorUrl := flag.String("tropidatooor-url", "", "Tropidatooor API URL (required)")
 	ipfsHash := flag.String("ipfs-hash", "", "IPFS hash for the test package (required)")
 	flag.Parse()
 
-	if *ipfsGatewayUrl == "" || *tropidatooorUrl == "" || *ipfsHash == "" {
-		logger.FatalWithPrefix(logPrefix, "All flags --ipfs-gateway-url, --tropidatooor-url, and --ipfs-hash are required.")
+	if *ipfsGatewayUrl == "" || *ipfsHash == "" {
+		logger.FatalWithPrefix(logPrefix, "All flags --ipfs-gateway-url and --ipfs-hash are required.")
 	}
 
 	ctx := context.Background()
@@ -56,15 +54,8 @@ func main() {
 	// print the staker config for debugging with each item on a new line
 	printStakerConfig(logPrefix, stakerConfig)
 
-	// Get mount path
-	tropidatooorAdapter := tropidatooor.NewTropidatooorAdapter(*tropidatooorUrl)
-	mountConfig, err := tropidatooorAdapter.DataRequest(ctx, stakerConfig.DataBackendName)
-	if err != nil {
-		logger.FatalWithPrefix(logPrefix, "Failed to get mount path: %v", err)
-	}
-
 	// Initialize API adapters
-	mountAdapter := mount.NewMountAdapter()
+	snapshotsAdapter := snapshots.NewSnapshotsAdapter()
 	dappManagerAdapter := dappmanager.NewDappManagerAdapter()
 	brainAdapter := brain.NewBrainAdapter(stakerConfig.Urls.BrainURL)
 	beaconchainAdapter := beaconchain.NewBeaconchainAdapter(stakerConfig.Urls.BeaconchainURL)
@@ -78,9 +69,8 @@ func main() {
 	compositeAdapter := composite.NewCompositeAdapter(
 		dappManagerAdapter,
 		brainAdapter,
-		tropidatooorAdapter,
 		dockerAdapter,
-		mountAdapter,
+		snapshotsAdapter,
 		beaconchainAdapter,
 		executionAdapter,
 		ipfsAdapter,
@@ -90,7 +80,7 @@ func main() {
 	go func() {
 		sig := <-sigs
 		logger.InfoWithPrefix(logPrefix, "Received signal: %v, running cleanup...", sig)
-		err := compositeAdapter.CleanEnvironment(ctx, stakerConfig, *mountConfig)
+		err := compositeAdapter.CleanEnvironment(ctx, stakerConfig)
 		if err != nil {
 			logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", err)
 		} else {
@@ -103,7 +93,7 @@ func main() {
 	// Initialize and run the service
 	testRunner := services.NewTestRunner(compositeAdapter)
 
-	if err := testRunner.RunTest(ctx, *mountConfig, stakerConfig, pkg); err != nil {
+	if err := testRunner.RunTest(ctx, stakerConfig, pkg); err != nil {
 		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
 	}
 
@@ -120,7 +110,7 @@ func printStakerConfig(prefix string, sc domain.StakerConfig) {
   MevBoostDnpName: %s
   Network: %s
   ExecutionContainerName: %s
-  DataBackendName: %s
+  ExecutionClientShortName: %s
   Urls:
     ExecutionURL: %s
     BrainURL: %s
@@ -133,7 +123,7 @@ func printStakerConfig(prefix string, sc domain.StakerConfig) {
 		sc.MevBoostDnpName,
 		sc.Network,
 		sc.ExecutionContainerName,
-		sc.DataBackendName,
+		sc.ExecutionClientShortName,
 		sc.Urls.ExecutionURL,
 		sc.Urls.BrainURL,
 		sc.Urls.BeaconchainURL,

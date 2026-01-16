@@ -8,16 +8,16 @@ import (
 )
 
 type StakerConfig struct {
-	ExecutionDnpName       string   `json:"executionDnpName"`
-	ConsensusDnpName       string   `json:"consensusDnpName"`
-	Web3SignerDnpName      string   `json:"web3signerDnpName"`
-	MevBoostDnpName        string   `json:"mevBoostDnpName"`
-	Relays                 []string `json:"relays,omitempty"` // Optional, can be empty
-	Network                string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
-	Urls                   Urls
-	ExecutionContainerName string // The name of the container to mount the NFS volume to
-	ExecutionVolumeName    string // The name of the volume to mount for execution client data
-	DataBackendName        string // The name of the backend to use for data requests
+	ExecutionDnpName         string   `json:"executionDnpName"`
+	ConsensusDnpName         string   `json:"consensusDnpName"`
+	Web3SignerDnpName        string   `json:"web3signerDnpName"`
+	MevBoostDnpName          string   `json:"mevBoostDnpName"`
+	Relays                   []string `json:"relays,omitempty"` // Optional, can be empty
+	Network                  string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
+	Urls                     Urls
+	ExecutionContainerName   string // The name of the container to mount the NFS volume to
+	ExecutionVolumeName      string // The name of the volume to mount for execution client data
+	ExecutionClientShortName string // Short name of the execution client (e.g., geth, nethermind, reth)
 }
 
 type Urls struct {
@@ -97,19 +97,18 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 			break
 		}
 	}
-	dataBackend := execShort + "-" + network
 
 	return StakerConfig{
-		ExecutionDnpName:       exec,
-		ConsensusDnpName:       cons,
-		Web3SignerDnpName:      web3signer,
-		MevBoostDnpName:        mevboost,
-		Relays:                 relays,
-		Network:                network,
-		Urls:                   urls,
-		ExecutionContainerName: executionContainerName(pkg.ServiceName, pkg.DnpName),
-		ExecutionVolumeName:    composeVolumeName(pkg.DnpName, pkg.ComposeVolumeName),
-		DataBackendName:        dataBackend,
+		ExecutionDnpName:         exec,
+		ConsensusDnpName:         cons,
+		Web3SignerDnpName:        web3signer,
+		MevBoostDnpName:          mevboost,
+		Relays:                   relays,
+		Network:                  network,
+		Urls:                     urls,
+		ExecutionContainerName:   executionContainerName(pkg.ServiceName, pkg.DnpName),
+		ExecutionVolumeName:      composeVolumeName(pkg.DnpName, pkg.ComposeVolumeName),
+		ExecutionClientShortName: execShort,
 	}
 }
 

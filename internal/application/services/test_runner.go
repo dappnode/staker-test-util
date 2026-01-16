@@ -17,9 +17,9 @@ func NewTestRunner(runner ports.TestRunner) *TestRunnerService {
 
 // RunTest wires up the three steps in sequence.
 // It ensures the environment, executes the test, and cleans up.
-func (s *TestRunnerService) RunTest(ctx context.Context, mountConfig domain.Mount, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
+func (s *TestRunnerService) RunTest(ctx context.Context, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
 	// 1) ensure environment
-	if err := s.Runner.EnsureEnvironment(ctx, mountConfig, stakerConfig, pkg); err != nil {
+	if err := s.Runner.EnsureEnvironment(ctx, stakerConfig, pkg); err != nil {
 		return fmt.Errorf("setup failed: %w", err)
 	}
 
@@ -27,14 +27,14 @@ func (s *TestRunnerService) RunTest(ctx context.Context, mountConfig domain.Moun
 	execErr := s.Runner.ExecuteTest(ctx)
 	if execErr != nil {
 		// even on test failure we want cleanup
-		if cleanupErr := s.Runner.CleanEnvironment(ctx, stakerConfig, mountConfig); cleanupErr != nil {
+		if cleanupErr := s.Runner.CleanEnvironment(ctx, stakerConfig); cleanupErr != nil {
 			return fmt.Errorf("test failed: %v; cleanup also failed: %w", execErr, cleanupErr)
 		}
 		return fmt.Errorf("test failed: %w", execErr)
 	}
 
 	// 3) cleanup
-	if err := s.Runner.CleanEnvironment(ctx, stakerConfig, mountConfig); err != nil {
+	if err := s.Runner.CleanEnvironment(ctx, stakerConfig); err != nil {
 		return fmt.Errorf("cleanup failed: %w", err)
 	}
 
