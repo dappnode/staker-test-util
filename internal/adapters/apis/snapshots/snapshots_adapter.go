@@ -2,6 +2,7 @@ package snapshots
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -66,6 +67,47 @@ func (s *SnapshotsAdapter) GetLatestBlockNumber(ctx context.Context, network, cl
 	return blockNumber, nil
 }
 
+// GetClientVersion fetches the client version used to generate the snapshot
+// The version is retrieved from the _snapshot_web3_clientVersion.json file
+func (s *SnapshotsAdapter) GetClientVersion(ctx context.Context, network, client, blockNumber string) (string, error) {
+	url := fmt.Sprintf("%s/%s/%s/%s/_snapshot_web3_clientVersion.json", s.baseURL, network, client, blockNumber)
+	logger.DebugWithPrefix(s.logPrefix, "Fetching client version from %s", url)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch client version: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to fetch client version: status %s", resp.Status)
+	}
+
+	var result struct {
+		Result string `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode client version response: %w", err)
+	}
+
+	logger.DebugWithPrefix(s.logPrefix, "Client version for %s/%s/%s: %s", network, client, blockNumber, result.Result)
+	return result.Result, nil
+}
+
+// GetLatestClientVersion fetches the client version for the latest available snapshot
+func (s *SnapshotsAdapter) GetLatestClientVersion(ctx context.Context, network, client string) (string, error) {
+	blockNumber, err := s.GetLatestBlockNumber(ctx, network, client)
+	if err != nil {
+		return "", fmt.Errorf("failed to get latest block number: %w", err)
+	}
+	return s.GetClientVersion(ctx, network, client, blockNumber)
+}
+
 // DownloadAndExtract downloads the snapshot for the given network/client and extracts it to targetPath
 // It uses a Docker container with alpine to handle the download and extraction
 func (s *SnapshotsAdapter) DownloadAndExtract(ctx context.Context, network, client, targetPath string) error {
@@ -82,11 +124,16 @@ func (s *SnapshotsAdapter) DownloadAndExtract(ctx context.Context, network, clie
 
 	// Build the shell command to run inside the alpine container
 	// This installs necessary tools, downloads the snapshot, and extracts it
+	// Optimizations:
+	// - zstd -T0: multi-threaded decompression using all CPU cores
+	// - No -v flag on tar: avoid printing every filename (major speedup)
+	// - Streaming: download and extraction happen in parallel via pipe
 	shellScript := fmt.Sprintf(`
 set -e
-apk add --no-cache wget curl tar zstd
+apk add --no-cache wget tar zstd
 echo "Downloading snapshot for block number: %s"
-wget --tries=0 --retry-connrefused -O - %s | tar -I zstd -xvf - -C /data
+echo "Using $(nproc) CPU cores for decompression"
+wget --tries=0 --retry-connrefused -O - %s | zstd -d -T0 | tar -xf - -C /data
 echo "Snapshot extraction complete"
 `, blockNumber, snapshotURL)
 
@@ -114,26 +161,4 @@ echo "Snapshot extraction complete"
 	logger.InfoWithPrefix(s.logPrefix, "Successfully downloaded and extracted snapshot to %s in %s", targetPath, elapsed)
 	logger.DebugWithPrefix(s.logPrefix, "Docker output:\n%s", string(output))
 	return nil
-}
-
-// GetSnapshotInfo returns information about the available snapshot for a network/client
-type SnapshotInfo struct {
-	Network     string
-	Client      string
-	BlockNumber string
-	URL         string
-}
-
-func (s *SnapshotsAdapter) GetSnapshotInfo(ctx context.Context, network, client string) (*SnapshotInfo, error) {
-	blockNumber, err := s.GetLatestBlockNumber(ctx, network, client)
-	if err != nil {
-		return nil, err
-	}
-
-	return &SnapshotInfo{
-		Network:     network,
-		Client:      client,
-		BlockNumber: blockNumber,
-		URL:         fmt.Sprintf("%s/%s/%s/%s/snapshot.tar.zst", s.baseURL, network, client, blockNumber),
-	}, nil
 }
