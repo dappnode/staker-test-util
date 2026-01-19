@@ -40,8 +40,3 @@ func (s *TestRunnerService) RunTest(ctx context.Context, stakerConfig domain.Sta
 
 	return nil
 }
-
-// GetReport returns the test report from the runner
-func (s *TestRunnerService) GetReport() *domain.TestReport {
-	return s.Runner.GetReport()
-}

@@ -122,6 +122,7 @@ docker-compose up --build
 - [x] Measure the time it takes every process in the test and add it to the report
 - [x] Collect logs from containers and create a report
 - [x] Add to the report the clients used
+- [ ] Auto-updates for this dappnode must run much more often than production, so clients are always updated to latest versions
 - [ ] Research how to release this SDK tool to be run from a github action directly
 - [ ] Implement when manual trigger (`workflow_dispatch`) the clients will be passed as inputs, use them to create the staker config for the test
 - [ ] Implement edit of `/usr/src/dappnode/DNCORE/docker-compose.yml` file to add env `TEST=true` and relaunch compose

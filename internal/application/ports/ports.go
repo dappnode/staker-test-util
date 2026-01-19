@@ -9,5 +9,4 @@ type TestRunner interface {
 	EnsureEnvironment(ctx context.Context, stakerConfig domain.StakerConfig, pkg domain.Pkg) error
 	ExecuteTest(ctx context.Context, stakerConfig domain.StakerConfig) error
 	CleanEnvironment(context.Context, domain.StakerConfig) error
-	GetReport() *domain.TestReport
 }

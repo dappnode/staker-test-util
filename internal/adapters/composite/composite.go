@@ -90,11 +90,6 @@ func (t *CompositeAdapter) CleanEnvironment(ctx context.Context, stakerConfig do
 	return t.cleaner.CleanEnvironment(ctx, stakerConfig)
 }
 
-// GetReport returns the current test report
-func (t *CompositeAdapter) GetReport() *domain.TestReport {
-	return t.report
-}
-
 // collectContainerErrorLogs collects error logs from all relevant containers
 func (t *CompositeAdapter) collectContainerErrorLogs(ctx context.Context, stakerConfig domain.StakerConfig, since, until time.Time) {
 	const maxLinesPerContainer = 3
