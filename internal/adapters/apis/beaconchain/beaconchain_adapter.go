@@ -168,6 +168,44 @@ func (b *BeaconchainAdapter) GetValidatorLiveness(ctx context.Context, indexes [
 	return liveness, nil
 }
 
+// GetClientVersion retrieves the version of the beacon node client
+// See: https://ethereum.github.io/beacon-APIs/#/Node/getNodeVersion
+func (b *BeaconchainAdapter) GetClientVersion(ctx context.Context) (string, error) {
+	url := fmt.Sprintf("%s/eth/v1/node/version", b.beaconChainUrl)
+	logger.DebugWithPrefix(b.logPrefix, "GetClientVersion: url=%s", url)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		logger.ErrorWithPrefix(b.logPrefix, "GetClientVersion: failed to create request: %v", err)
+		return "", err
+	}
+
+	resp, err := b.client.Do(req)
+	if err != nil {
+		logger.ErrorWithPrefix(b.logPrefix, "GetClientVersion: request failed: %v", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		logger.ErrorWithPrefix(b.logPrefix, "GetClientVersion: non-200 status: %s", resp.Status)
+		return "", fmt.Errorf("beacon node version failed: %s", resp.Status)
+	}
+
+	var result struct {
+		Data struct {
+			Version string `json:"version"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		logger.ErrorWithPrefix(b.logPrefix, "GetClientVersion: failed to decode response: %v", err)
+		return "", err
+	}
+
+	logger.DebugWithPrefix(b.logPrefix, "GetClientVersion: version=%s", result.Data.Version)
+	return result.Data.Version, nil
+}
+
 // GetValidatorsIndexes retrieves the validator index for each given pubkey with status active_ongoing
 func (b *BeaconchainAdapter) GetValidatorsIndexes(ctx context.Context, pubkeys []string) ([]string, error) {
 	url := fmt.Sprintf("%s/eth/v1/beacon/states/finalized/validators", b.beaconChainUrl)
