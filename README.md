@@ -122,5 +122,7 @@ docker-compose up --build
 - [x] Measure the time it takes every process in the test and add it to the report
 - [x] Collect logs from containers and create a report
 - [x] Add to the report the clients used
+- [ ] Research how to release this SDK tool to be run from a github action directly
+- [ ] Implement when manual trigger (`workflow_dispatch`) the clients will be passed as inputs, use them to create the staker config for the test
 - [ ] Consider adding to report beaconcha validator url
 - [ ] Consider setting keystore and password through github secrets.
