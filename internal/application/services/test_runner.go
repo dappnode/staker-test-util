@@ -23,8 +23,8 @@ func (s *TestRunnerService) RunTest(ctx context.Context, stakerConfig domain.Sta
 		return fmt.Errorf("setup failed: %w", err)
 	}
 
-	// 2) execute test
-	execErr := s.Runner.ExecuteTest(ctx)
+	// 2) execute test (now includes report generation and PR commenting)
+	execErr := s.Runner.ExecuteTest(ctx, stakerConfig)
 	if execErr != nil {
 		// even on test failure we want cleanup
 		if cleanupErr := s.Runner.CleanEnvironment(ctx, stakerConfig); cleanupErr != nil {
@@ -39,4 +39,9 @@ func (s *TestRunnerService) RunTest(ctx context.Context, stakerConfig domain.Sta
 	}
 
 	return nil
+}
+
+// GetReport returns the test report from the runner
+func (s *TestRunnerService) GetReport() *domain.TestReport {
+	return s.Runner.GetReport()
 }

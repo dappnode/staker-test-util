@@ -6,14 +6,15 @@ import (
 	"clients-test/internal/adapters/apis/dappmanager"
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/execution"
+	"clients-test/internal/adapters/apis/github"
 	"clients-test/internal/adapters/apis/ipfs"
 	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/adapters/composite"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
+	"clients-test/internal/config"
 	"clients-test/internal/logger"
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -25,33 +26,20 @@ var logPrefix = "MAIN"
 func main() {
 	logger.InfoWithPrefix(logPrefix, "Starting Notifications service")
 
+	// Parse and validate configuration
+	cfg := config.ParseConfig()
+	cfg.Validate()
+
 	// Set up Ctrl+C (SIGINT) handler to call composite cleaner
 	cleanupDone := make(chan struct{})
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	// CLI flags (fallback to environment variables if not set)
-	ipfsGatewayUrl := flag.String("ipfs-gateway-url", "", "IPFS gateway URL (required, or set IPFS_GATEWAY_URL env)")
-	ipfsHash := flag.String("ipfs-hash", "", "IPFS hash for the test package (required, or set IPFS_HASH env)")
-	flag.Parse()
-
-	// Fallback to environment variables if flags are not set
-	if *ipfsGatewayUrl == "" {
-		*ipfsGatewayUrl = os.Getenv("IPFS_GATEWAY_URL")
-	}
-	if *ipfsHash == "" {
-		*ipfsHash = os.Getenv("IPFS_HASH")
-	}
-
-	if *ipfsGatewayUrl == "" || *ipfsHash == "" {
-		logger.FatalWithPrefix(logPrefix, "IPFS gateway URL and hash are required. Set via --ipfs-gateway-url/--ipfs-hash flags or IPFS_GATEWAY_URL/IPFS_HASH environment variables.")
-	}
-
 	ctx := context.Background()
 
 	// Fetch dnpName from ipfs hash
-	ipfsAdapter := ipfs.NewIPFSAdapter(ipfsGatewayUrl)
-	pkg, err := ipfsAdapter.GetDnpNameAndServiceName(ctx, *ipfsHash)
+	ipfsAdapter := ipfs.NewIPFSAdapter(&cfg.IPFSGatewayURL)
+	pkg, err := ipfsAdapter.GetDnpNameAndServiceName(ctx, cfg.IPFSHash)
 	if err != nil {
 		logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
 	}
@@ -73,6 +61,16 @@ func main() {
 		logger.FatalWithPrefix(logPrefix, "Failed to init DockerAdapter: %v", err)
 	}
 
+	// Initialize GitHub adapter for PR commenting
+	githubAdapter := github.NewGitHubAdapter(cfg.GitHub)
+
+	// Log GitHub configuration status
+	if githubAdapter.IsEnabled() {
+		logger.InfoWithPrefix(logPrefix, "GitHub integration enabled - will comment on PR #%d", cfg.GitHub.PRNumber)
+	} else {
+		logger.InfoWithPrefix(logPrefix, "GitHub integration not enabled (missing token, repository, or PR number)")
+	}
+
 	// Initialize the unified test adapter (now also initializes composites internally)
 	compositeAdapter := composite.NewCompositeAdapter(
 		dappManagerAdapter,
@@ -82,6 +80,7 @@ func main() {
 		beaconchainAdapter,
 		executionAdapter,
 		ipfsAdapter,
+		githubAdapter,
 	)
 
 	// Ctrl+C handler: call CleanEnvironment on composite

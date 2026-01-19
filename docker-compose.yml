@@ -10,6 +10,12 @@ services:
       - LOG_LEVEL=DEBUG
       - IPFS_GATEWAY_URL=http://ipfs.dappnode:8080
       - IPFS_HASH=QmSfPFSauovbMzEcvf2a2csoHtfqpViShwEYpuX3fPR8zv
+      # GitHub integration (optional - for PR commenting)
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-}
+      - GITHUB_PR_NUMBER=${GITHUB_PR_NUMBER:-}
+      - GITHUB_RUN_ID=${GITHUB_RUN_ID:-}
+      - GITHUB_SERVER_URL=${GITHUB_SERVER_URL:-https://github.com}
     # command: ["--ipfs-gateway-url", "${IPFS_GATEWAY_URL}", "--ipfs-hash", "${IPFS_HASH}"]
     networks:
       - dncore_network

@@ -8,7 +8,11 @@ import (
 	"clients-test/internal/adapters/apis/beaconchain"
 	"clients-test/internal/adapters/apis/brain"
 	"clients-test/internal/adapters/apis/execution"
+	"clients-test/internal/application/domain"
+	"clients-test/internal/logger"
 )
+
+var logPrefix = "Executor"
 
 type ExecutorAdapter struct {
 	Execution   *execution.ExecutionAdapter
@@ -22,6 +26,25 @@ func NewExecutorAdapter(execution *execution.ExecutionAdapter, brain *brain.Brai
 		Brain:       brain,
 		Beaconchain: beaconchain,
 	}
+}
+
+// timeOperation measures the duration of an operation and records it in the report
+func timeOperation(report *domain.TestReport, operationName string, fn func() error) error {
+	start := time.Now()
+	err := fn()
+	duration := time.Since(start)
+
+	success := err == nil
+	report.AddExecuteTiming(operationName, duration, success, err)
+
+	// Log the timing
+	if success {
+		logger.InfoWithPrefix(logPrefix, "%s completed in %s", operationName, duration.Round(time.Millisecond))
+	} else {
+		logger.ErrorWithPrefix(logPrefix, "%s failed after %s: %v", operationName, duration.Round(time.Millisecond), err)
+	}
+
+	return err
 }
 
 // waitForExecutionSync waits until the execution client is synced or times out,
@@ -162,15 +185,25 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 }
 
 // ExecuteTest runs both sync and liveness checks in sequence
-func (t *ExecutorAdapter) ExecuteTest(ctx context.Context) error {
-	if err := t.waitForBeaconchainSync(ctx); err != nil {
+// All operations are timed and recorded in the report.
+func (t *ExecutorAdapter) ExecuteTest(ctx context.Context, report *domain.TestReport) error {
+	if err := timeOperation(report, "WaitForBeaconchainSync", func() error {
+		return t.waitForBeaconchainSync(ctx)
+	}); err != nil {
 		return err
 	}
-	if err := t.waitForExecutionSync(ctx); err != nil {
+
+	if err := timeOperation(report, "WaitForExecutionSync", func() error {
+		return t.waitForExecutionSync(ctx)
+	}); err != nil {
 		return err
 	}
-	if err := t.waitForValidatorLiveness(ctx); err != nil {
+
+	if err := timeOperation(report, "WaitForValidatorLiveness", func() error {
+		return t.waitForValidatorLiveness(ctx)
+	}); err != nil {
 		return err
 	}
+
 	return nil
 }

@@ -15,6 +15,10 @@ type StakerConfig struct {
 	Relays                   []string `json:"relays,omitempty"` // Optional, can be empty
 	Network                  string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
 	Urls                     Urls
+	BrainContainerName       string // The name of the brain container
+	SignerContainerName      string // The name of the web3signer container
+	BeaconchainContainerName string // The name of the beaconchain container
+	ValidatorContainerName   string // The name of the validator container
 	ExecutionContainerName   string // The name of the container to mount the NFS volume to
 	ExecutionVolumeName      string // The name of the volume to mount for execution client data
 	ExecutionClientShortName string // Short name of the execution client (e.g., geth, nethermind, reth)
@@ -108,7 +112,11 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		Relays:                   relays,
 		Network:                  network,
 		Urls:                     urls,
-		ExecutionContainerName:   executionContainerName(pkg.ServiceName, pkg.DnpName),
+		BrainContainerName:       containerName("brain", web3signer),
+		SignerContainerName:      containerName("web3signer", web3signer),
+		BeaconchainContainerName: containerName("beacon-chain", cons),
+		ValidatorContainerName:   containerName("validator", cons),
+		ExecutionContainerName:   containerName(shortDnpName(exec), exec),
 		ExecutionVolumeName:      composeVolumeName(pkg.DnpName, pkg.ComposeVolumeName),
 		ExecutionClientShortName: execShort,
 	}
@@ -146,8 +154,8 @@ func shortDnpName(dnpName string) string {
 	return strings.TrimSuffix(dnpName, ".dnp.dappnode.eth")
 }
 
-// Utility to get the execution container name from service and dnpName
-func executionContainerName(serviceName, dnpName string) string {
+// Utility to get the container name from service and dnpName
+func containerName(serviceName, dnpName string) string {
 	return fmt.Sprintf("DAppNodePackage-%s.%s.dnp.dappnode.eth", serviceName, shortDnpName(dnpName))
 }
 

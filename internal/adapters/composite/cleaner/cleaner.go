@@ -34,16 +34,16 @@ func (e *CleanerAdapter) CleanEnvironment(ctx context.Context, stakerConfig doma
 	var errs []error
 
 	// Attempt to stop container
-	_, err := e.Docker.StopAndGetVolumeTarget(ctx, stakerConfig.ExecutionContainerName, stakerConfig.ExecutionVolumeName)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("stop container failed: %w", err))
-	}
+	// _, err := e.Docker.StopAndGetVolumeTarget(ctx, stakerConfig.ExecutionContainerName, stakerConfig.ExecutionVolumeName)
+	// if err != nil {
+	// 	errs = append(errs, fmt.Errorf("stop container failed: %w", err))
+	// }
 
 	// Attempt to remove non-core packages
-	pkgErrs := e.Dappmanager.RemoveNonCorePackages(ctx)
-	for _, pkgErr := range pkgErrs {
-		errs = append(errs, fmt.Errorf("remove non-core package failed: %w", pkgErr))
-	}
+	// pkgErrs := e.Dappmanager.RemoveNonCorePackages(ctx)
+	// for _, pkgErr := range pkgErrs {
+	// 	errs = append(errs, fmt.Errorf("remove non-core package failed: %w", pkgErr))
+	// }
 
 	// Return combined error if any step failed
 	if len(errs) > 0 {
