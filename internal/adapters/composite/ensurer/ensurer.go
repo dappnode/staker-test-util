@@ -65,11 +65,40 @@ func timeOperation(report *domain.TestReport, operationName string, fn func() er
 func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig domain.StakerConfig, pkg domain.Pkg, report *domain.TestReport) error {
 	var volumeTarget string
 
+	// Determine what type of client is being tested
+	isExecutionTest := pkg.DnpName == stakerConfig.ExecutionDnpName
+	isConsensusTest := pkg.DnpName == stakerConfig.ConsensusDnpName
+
+	if isExecutionTest {
+		report.TestedClientType = "execution"
+		logger.InfoWithPrefix(logPrefix, "Testing execution client: %s", pkg.DnpName)
+	} else if isConsensusTest {
+		report.TestedClientType = "consensus"
+		logger.InfoWithPrefix(logPrefix, "Testing consensus client: %s", pkg.DnpName)
+	}
+
 	// SetStakerConfig
 	if err := timeOperation(report, "SetStakerConfig", func() error {
 		return e.DappManager.SetStakerConfig(ctx, stakerConfig)
 	}); err != nil {
 		return fmt.Errorf("failed to set staker config for DNP: %w", err)
+	}
+
+	// Capture client version BEFORE install (if client is already running)
+	if isExecutionTest {
+		if version, err := e.Execution.GetClientVersion(ctx); err == nil {
+			report.ExecutionClientVersionBefore = version
+			logger.InfoWithPrefix(logPrefix, "Execution client version before install: %s", version)
+		} else {
+			logger.DebugWithPrefix(logPrefix, "Could not get execution client version before install: %v", err)
+		}
+	} else if isConsensusTest {
+		if version, err := e.Beaconchain.GetClientVersion(ctx); err == nil {
+			report.ConsensusClientVersionBefore = version
+			logger.InfoWithPrefix(logPrefix, "Consensus client version before install: %s", version)
+		} else {
+			logger.DebugWithPrefix(logPrefix, "Could not get consensus client version before install: %v", err)
+		}
 	}
 
 	// PackageInstall
@@ -79,6 +108,23 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 		return fmt.Errorf("failed to install package: %w", err)
 	}
 
+	// Capture client version AFTER install
+	if isExecutionTest {
+		if version, err := e.Execution.GetClientVersion(ctx); err == nil {
+			report.ExecutionClientVersionAfter = version
+			logger.InfoWithPrefix(logPrefix, "Execution client version after install: %s", version)
+		} else {
+			logger.DebugWithPrefix(logPrefix, "Could not get execution client version after install: %v", err)
+		}
+	} else if isConsensusTest {
+		if version, err := e.Beaconchain.GetClientVersion(ctx); err == nil {
+			report.ConsensusClientVersionAfter = version
+			logger.InfoWithPrefix(logPrefix, "Consensus client version after install: %s", version)
+		} else {
+			logger.DebugWithPrefix(logPrefix, "Could not get consensus client version after install: %v", err)
+		}
+	}
+
 	// StopAndGetVolumeTarget
 	if err := timeOperation(report, "StopAndGetVolumeTarget", func() error {
 		var err error
@@ -86,6 +132,14 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 		return err
 	}); err != nil {
 		return fmt.Errorf("failed to stop container and get volume: %w", err)
+	}
+
+	// Get snapshot client version before downloading
+	if version, err := e.Snapshots.GetLatestClientVersion(ctx, stakerConfig.Network, stakerConfig.ExecutionClientShortName); err == nil {
+		report.SnapshotClientVersion = version
+		logger.InfoWithPrefix(logPrefix, "Snapshot client version: %s", version)
+	} else {
+		logger.WarnWithPrefix(logPrefix, "Could not get snapshot client version: %v", err)
 	}
 
 	// DownloadAndExtractSnapshot

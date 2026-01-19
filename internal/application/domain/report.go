@@ -29,6 +29,16 @@ type TestReport struct {
 	MevBoostDnpName   string `json:"mevBoostDnpName"`
 	Network           string `json:"network"`
 
+	// Client versions (before/after install)
+	ExecutionClientVersionBefore string `json:"executionClientVersionBefore,omitempty"`
+	ExecutionClientVersionAfter  string `json:"executionClientVersionAfter,omitempty"`
+	ConsensusClientVersionBefore string `json:"consensusClientVersionBefore,omitempty"`
+	ConsensusClientVersionAfter  string `json:"consensusClientVersionAfter,omitempty"`
+	SnapshotClientVersion        string `json:"snapshotClientVersion,omitempty"`
+
+	// What type of client is being tested
+	TestedClientType string `json:"testedClientType,omitempty"` // "execution" or "consensus"
+
 	// Test execution info
 	StartTime time.Time `json:"startTime"`
 	EndTime   time.Time `json:"endTime"`
@@ -133,6 +143,44 @@ func (r *TestReport) ToMarkdown() string {
 	sb.WriteString(fmt.Sprintf("| Network | `%s` |\n", r.Network))
 	sb.WriteString("\n")
 
+	// Version tracking section
+	if r.TestedClientType != "" {
+		sb.WriteString("### 🔖 Version Tracking\n\n")
+		if r.TestedClientType == "execution" {
+			sb.WriteString("**Tested Client:** Execution\n\n")
+			sb.WriteString("| Stage | Version |\n")
+			sb.WriteString("|-------|---------|\n")
+			if r.ExecutionClientVersionBefore != "" {
+				sb.WriteString(fmt.Sprintf("| Before Install | `%s` |\n", r.ExecutionClientVersionBefore))
+			} else {
+				sb.WriteString("| Before Install | _not available_ |\n")
+			}
+			if r.ExecutionClientVersionAfter != "" {
+				sb.WriteString(fmt.Sprintf("| After Install | `%s` |\n", r.ExecutionClientVersionAfter))
+			} else {
+				sb.WriteString("| After Install | _not available_ |\n")
+			}
+			if r.SnapshotClientVersion != "" {
+				sb.WriteString(fmt.Sprintf("| Snapshot | `%s` |\n", r.SnapshotClientVersion))
+			}
+		} else if r.TestedClientType == "consensus" {
+			sb.WriteString("**Tested Client:** Consensus\n\n")
+			sb.WriteString("| Stage | Version |\n")
+			sb.WriteString("|-------|---------|\n")
+			if r.ConsensusClientVersionBefore != "" {
+				sb.WriteString(fmt.Sprintf("| Before Install | `%s` |\n", r.ConsensusClientVersionBefore))
+			} else {
+				sb.WriteString("| Before Install | _not available_ |\n")
+			}
+			if r.ConsensusClientVersionAfter != "" {
+				sb.WriteString(fmt.Sprintf("| After Install | `%s` |\n", r.ConsensusClientVersionAfter))
+			} else {
+				sb.WriteString("| After Install | _not available_ |\n")
+			}
+		}
+		sb.WriteString("\n")
+	}
+
 	// Timing section
 	sb.WriteString("### ⏱️ Timing Measurements\n\n")
 
@@ -212,6 +260,31 @@ func (r *TestReport) ToConsoleString() string {
 	sb.WriteString(fmt.Sprintf("  MEV Boost:   %s\n", r.MevBoostDnpName))
 	sb.WriteString(fmt.Sprintf("  Network:     %s\n", r.Network))
 	sb.WriteString("\n")
+
+	// Version tracking
+	if r.TestedClientType != "" {
+		sb.WriteString("VERSION TRACKING:\n")
+		sb.WriteString(fmt.Sprintf("  Tested Client Type: %s\n", r.TestedClientType))
+		if r.TestedClientType == "execution" {
+			if r.ExecutionClientVersionBefore != "" {
+				sb.WriteString(fmt.Sprintf("  Before Install:     %s\n", r.ExecutionClientVersionBefore))
+			}
+			if r.ExecutionClientVersionAfter != "" {
+				sb.WriteString(fmt.Sprintf("  After Install:      %s\n", r.ExecutionClientVersionAfter))
+			}
+			if r.SnapshotClientVersion != "" {
+				sb.WriteString(fmt.Sprintf("  Snapshot Version:   %s\n", r.SnapshotClientVersion))
+			}
+		} else if r.TestedClientType == "consensus" {
+			if r.ConsensusClientVersionBefore != "" {
+				sb.WriteString(fmt.Sprintf("  Before Install:     %s\n", r.ConsensusClientVersionBefore))
+			}
+			if r.ConsensusClientVersionAfter != "" {
+				sb.WriteString(fmt.Sprintf("  After Install:      %s\n", r.ConsensusClientVersionAfter))
+			}
+		}
+		sb.WriteString("\n")
+	}
 
 	// Timing
 	sb.WriteString("TIMING MEASUREMENTS:\n")
