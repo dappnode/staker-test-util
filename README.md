@@ -127,5 +127,7 @@ docker-compose up --build
 - [ ] Implement edit of `/usr/src/dappnode/DNCORE/docker-compose.yml` file to add env `TEST=true` and relaunch compose
 - [ ] Print version of the clients 
     - [ ] For the EC it must be printed
+- [ ] Consider always removing beacon volumes to ensure avoiding old states of chain and always start with the checkpoint sync
+- [ ] Implement switch off of dappmanager cron that restarts containers of clients selected in stakers
 - [ ] Consider adding to report beaconcha validator url
 - [ ] Consider setting keystore and password through github secrets.
