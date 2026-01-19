@@ -129,5 +129,6 @@ docker-compose up --build
     - [ ] For the EC it must be printed
 - [ ] Consider always removing beacon volumes to ensure avoiding old states of chain and always start with the checkpoint sync
 - [ ] Implement switch off of dappmanager cron that restarts containers of clients selected in stakers
+- [ ] Silent the tar output when extracting snapshots or make it less verbose
 - [ ] Consider adding to report beaconcha validator url
 - [ ] Consider setting keystore and password through github secrets.
