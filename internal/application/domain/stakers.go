@@ -79,7 +79,7 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		}
 	case "hoodi":
 		execClients = []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
-		consClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth", "lighthouse-hoodi.dnp.dappnode.eth"}
+		consClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth"}
 		web3signer = "web3signer-hoodi.dnp.dappnode.eth"
 		mevboost = "mev-boost-hoodi.dnp.dappnode.eth"
 		relays = []string{}
@@ -91,22 +91,22 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		}
 	}
 
-	exec := matchOrRandom(pkg.DnpName, execClients)
-	cons := matchOrRandom(pkg.DnpName, consClients)
+	ecDnpName := matchOrRandom(pkg.DnpName, execClients)
+	ccDnpName := matchOrRandom(pkg.DnpName, consClients)
 
 	// List of known execution client short names
-	clientShortNames := []string{"geth", "nethermind", "erigon", "reth", "besu"}
-	execShort := "unknown"
-	for _, short := range clientShortNames {
-		if strings.Contains(exec, short) {
-			execShort = short
+	ecShortNames := []string{"geth", "nethermind", "erigon", "reth", "besu"}
+	ecShortDnpName := "unknown"
+	for _, short := range ecShortNames {
+		if strings.Contains(ecDnpName, short) {
+			ecShortDnpName = short
 			break
 		}
 	}
 
 	return StakerConfig{
-		ExecutionDnpName:         exec,
-		ConsensusDnpName:         cons,
+		ExecutionDnpName:         ecDnpName,
+		ConsensusDnpName:         ccDnpName,
 		Web3SignerDnpName:        web3signer,
 		MevBoostDnpName:          mevboost,
 		Relays:                   relays,
@@ -114,11 +114,11 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		Urls:                     urls,
 		BrainContainerName:       containerName("brain", web3signer),
 		SignerContainerName:      containerName("web3signer", web3signer),
-		BeaconchainContainerName: containerName("beacon-chain", cons),
-		ValidatorContainerName:   containerName("validator", cons),
-		ExecutionContainerName:   containerName(shortDnpName(exec), exec),
+		BeaconchainContainerName: containerName("beacon-chain", ccDnpName),
+		ValidatorContainerName:   containerName("validator", ccDnpName),
+		ExecutionContainerName:   containerName(serviceNameFromExecutionClient(ecDnpName), ecDnpName),
 		ExecutionVolumeName:      composeVolumeName(pkg.DnpName, pkg.ComposeVolumeName),
-		ExecutionClientShortName: execShort,
+		ExecutionClientShortName: ecShortDnpName,
 	}
 }
 
@@ -149,14 +149,18 @@ func matchOrRandom(dnpName string, candidates []string) string {
 	return candidates[r.Intn(len(candidates))]
 }
 
-// Utility to get the short dnp name (strip .dnp.dappnode.eth)
-func shortDnpName(dnpName string) string {
-	return strings.TrimSuffix(dnpName, ".dnp.dappnode.eth")
+// Utility to get the servicename from a execution client (this utility assumes the service name is the first part of the dnp name)
+func serviceNameFromExecutionClient(dnpName string) string {
+	parts := strings.Split(dnpName, "-")
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return dnpName
 }
 
-// Utility to get the container name from service and dnpName
+// Utility to get the container name from service and dnpName. append dnp or public suffix depending on original dnpName
 func containerName(serviceName, dnpName string) string {
-	return fmt.Sprintf("DAppNodePackage-%s.%s.dnp.dappnode.eth", serviceName, shortDnpName(dnpName))
+	return fmt.Sprintf("DAppNodePackage-%s.%s", serviceName, dnpName)
 }
 
 // Utility to get the docker volume name from dnpName and compose volume name
