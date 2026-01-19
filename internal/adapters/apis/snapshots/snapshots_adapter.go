@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+	"time"
 
 	"clients-test/internal/logger"
 )
@@ -101,14 +102,16 @@ echo "Snapshot extraction complete"
 
 	logger.DebugWithPrefix(s.logPrefix, "Running docker command: docker %s", strings.Join(dockerArgs, " "))
 
+	start := time.Now()
 	cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		logger.ErrorWithPrefix(s.logPrefix, "Failed to download/extract snapshot: %v\n%s", err, string(output))
 		return fmt.Errorf("failed to download/extract snapshot: %w\n%s", err, string(output))
 	}
+	elapsed := time.Since(start)
 
-	logger.InfoWithPrefix(s.logPrefix, "Successfully downloaded and extracted snapshot to %s", targetPath)
+	logger.InfoWithPrefix(s.logPrefix, "Successfully downloaded and extracted snapshot to %s in %s", targetPath, elapsed)
 	logger.DebugWithPrefix(s.logPrefix, "Docker output:\n%s", string(output))
 	return nil
 }
