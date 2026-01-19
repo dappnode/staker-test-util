@@ -30,13 +30,21 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	// CLI flags
-	ipfsGatewayUrl := flag.String("ipfs-gateway-url", "", "IPFS gateway URL (required)")
-	ipfsHash := flag.String("ipfs-hash", "", "IPFS hash for the test package (required)")
+	// CLI flags (fallback to environment variables if not set)
+	ipfsGatewayUrl := flag.String("ipfs-gateway-url", "", "IPFS gateway URL (required, or set IPFS_GATEWAY_URL env)")
+	ipfsHash := flag.String("ipfs-hash", "", "IPFS hash for the test package (required, or set IPFS_HASH env)")
 	flag.Parse()
 
+	// Fallback to environment variables if flags are not set
+	if *ipfsGatewayUrl == "" {
+		*ipfsGatewayUrl = os.Getenv("IPFS_GATEWAY_URL")
+	}
+	if *ipfsHash == "" {
+		*ipfsHash = os.Getenv("IPFS_HASH")
+	}
+
 	if *ipfsGatewayUrl == "" || *ipfsHash == "" {
-		logger.FatalWithPrefix(logPrefix, "All flags --ipfs-gateway-url and --ipfs-hash are required.")
+		logger.FatalWithPrefix(logPrefix, "IPFS gateway URL and hash are required. Set via --ipfs-gateway-url/--ipfs-hash flags or IPFS_GATEWAY_URL/IPFS_HASH environment variables.")
 	}
 
 	ctx := context.Background()
