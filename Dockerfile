@@ -1,41 +1,30 @@
-# ===== STAGE 1: Build Stage =====
-FROM golang:1.24 AS builder
+# Build stage
+FROM golang:1.24-alpine AS builder
 
-# Set environment variables
-ENV CGO_ENABLED=1 \
-  GOOS=linux \
-  GOARCH=amd64
-
-# Install necessary build dependencies
-RUN apt-get update && apt-get install -y gcc libc-dev
-
-# Set working directory inside the container
 WORKDIR /app
 
-# Copy Go modules manifests first (for better caching)
+# Install git for fetching dependencies
+RUN apk add --no-cache git
+
+# Copy go mod files first for better caching
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the entire source code
+# Copy source code
 COPY . .
 
-# Build the Go binary
-RUN go build -o /app/server ./cmd/main.go
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/staker-test-util ./cmd/main.go
 
-# ===== STAGE 2: Runtime Stage =====
-FROM debian:stable-slim
+# Final stage
+FROM alpine:latest
 
-# Install required runtime dependencies (for CGO)
-RUN apt-get update && apt-get install -y ca-certificates libc6 && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
 WORKDIR /app
 
-# Copy the compiled binary from builder stage
-COPY --from=builder /app/server .
+# Install ca-certificates for HTTPS requests and docker-cli for snapshot operations
+RUN apk add --no-cache ca-certificates docker-cli
 
-# Expose the application port
-EXPOSE 8080
+# Copy binary from builder
+COPY --from=builder /app/staker-test-util /app/staker-test-util
 
-# Run the application
-CMD ["./server"]
+ENTRYPOINT ["/app/staker-test-util"]
