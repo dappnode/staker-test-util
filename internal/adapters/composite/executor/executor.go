@@ -51,7 +51,7 @@ func timeOperation(report *domain.TestReport, operationName string, fn func() er
 // returning only after maxTries with the most recent error (if any).
 func (t *ExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 	const (
-		maxTries = 60
+		maxTries = 180
 		sleepDur = 6 * time.Second
 	)
 	var lastErr error
