@@ -33,26 +33,18 @@ func ParseConfig() Config {
 
 	// Build config with flag values, falling back to environment variables
 	config := Config{
-		IPFSGatewayURL: getConfigValue(*ipfsGatewayUrl, "IPFS_GATEWAY_URL"),
-		IPFSHash:       getConfigValue(*ipfsHash, "IPFS_HASH"),
+		IPFSGatewayURL: getConfigValue(*ipfsGatewayUrl, "IPFS_GATEWAY_URL", ""),
+		IPFSHash:       getConfigValue(*ipfsHash, "IPFS_HASH", ""),
 		GitHub: github.ParseGitHubConfigFromEnv(
-			getConfigValue(*githubToken, "GITHUB_TOKEN"),
-			getConfigValue(*githubRepository, "GITHUB_REPOSITORY"),
+			getConfigValue(*githubToken, "GITHUB_TOKEN", ""),
+			getConfigValue(*githubRepository, "GITHUB_REPOSITORY", ""),
 			getGitHubPRNumber(*githubPRNumber),
-			getConfigValue(*githubRunID, "GITHUB_RUN_ID"),
+			getConfigValue(*githubRunID, "GITHUB_RUN_ID", ""),
 			getGitHubServerURL(*githubServerURL),
 		),
 	}
 
 	return config
-}
-
-// getConfigValue returns the flag value if set, otherwise falls back to the environment variable
-func getConfigValue(flagValue, envName string) string {
-	if flagValue != "" {
-		return flagValue
-	}
-	return os.Getenv(envName)
 }
 
 // getGitHubPRNumber gets the PR number from flag or environment variables

@@ -118,18 +118,45 @@ docker-compose up --build
 ```
 
 ## TODO's
+
+- snapshot checker (cron that runs on startup and every 6h): ensures the Execution clients have the latest snapshots downloaded and mounted to their respective volumes
+  - Checks if snapshots exists for given clients and network
+    - If they dont exist then write temporary file `download_in_progress` to signal other processes that snapshot download is in progress and:
+      1. download snapshots
+      2. extract snapshots
+      3. mount snapshots to respective volumes 
+      4. Write the block number of the snapshot downloaded to a file `snapshot_block_number` inside the respective volume
+      5. remove temporary file `download_in_progress`
+    - If they do exist then check:
+      1. If file `download_in_progress` exists then exit
+      2. If file `snapshot_block_number` exists then check if the latest snapshot available is newer, if so redownload snapshot as above
+      3. If file `snapshot_block_number` does not exist then redownload snapshot as above
+- test runner: executed once per test (manually or on PR) 
+  - ensures environment before running tests
+    - among other things it must check if the file `download_in_progress` exits, if so the test must wait until it is removed
+  - runs tests
+  - cleanup environment after tests
+
 - [x] Implement a github adapter to interact with issues and PRs so we can automate report creation as well as the testing process.
 - [x] Measure the time it takes every process in the test and add it to the report
 - [x] Collect logs from containers and create a report
 - [x] Add to the report the clients used
+- [ ] Implement timer check in the snapshot checker
+- [ ] The test runner must remove the clients or unset the staker config on exit
+- [ ] Implement a composite adapter for the snapshot checker
+- [ ] Implement time tracker in the snapshot checker service to measure time taken for each action, specially download and extraction of snapshots
+- [ ] Implement snapshot cleaner on signal interrupt or termination to avoid corrupted snapshots
 - [ ] Auto-updates for this dappnode must run much more often than production, so clients are always updated to latest versions
 - [ ] Research how to release this SDK tool to be run from a github action directly
 - [ ] Implement when manual trigger (`workflow_dispatch`) the clients will be passed as inputs, use them to create the staker config for the test
 - [ ] Implement edit of `/usr/src/dappnode/DNCORE/docker-compose.yml` file to add env `TEST=true` and relaunch compose
 - [ ] Print version of the clients 
     - [ ] For the EC it must be printed
+- [ ] Add to the report the block of the snapshot used
 - [ ] Consider always removing beacon volumes to ensure avoiding old states of chain and always start with the checkpoint sync
 - [ ] Implement switch off of dappmanager cron that restarts containers of clients selected in stakers
 - [ ] Silent the tar output when extracting snapshots or make it less verbose
+- [ ] Consider adding a DB for reports and a UI to consume them
 - [ ] Consider adding to report beaconcha validator url
+- [ ] Consider adding support for multiple networks (mainnet, prater, etc.)
 - [ ] Consider setting keystore and password through github secrets.

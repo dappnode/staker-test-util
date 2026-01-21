@@ -60,11 +60,9 @@ func timeOperation(report *domain.TestReport, operationName string, fn func() er
 }
 
 // EnsureEnvironment validates the environment and prepares it for testing.
-// It sets the staker config, installs the package, stops the container, downloads the snapshot, and starts the container.
+// It sets the staker config and installs the package.
 // All operations are timed and recorded in the report.
 func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig domain.StakerConfig, pkg domain.Pkg, report *domain.TestReport) error {
-	var volumeTarget string
-
 	// Determine what type of client is being tested
 	isExecutionTest := pkg.DnpName == stakerConfig.ExecutionDnpName
 	isConsensusTest := pkg.DnpName == stakerConfig.ConsensusDnpName
@@ -123,37 +121,6 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 		} else {
 			logger.DebugWithPrefix(logPrefix, "Could not get consensus client version after install: %v", err)
 		}
-	}
-
-	// StopAndGetVolumeTarget
-	if err := timeOperation(report, "StopAndGetVolumeTarget", func() error {
-		var err error
-		volumeTarget, err = e.Docker.StopAndGetVolumeTarget(ctx, stakerConfig.ExecutionContainerName, stakerConfig.ExecutionVolumeName)
-		return err
-	}); err != nil {
-		return fmt.Errorf("failed to stop container and get volume: %w", err)
-	}
-
-	// Get snapshot client version before downloading
-	if version, err := e.Snapshots.GetLatestClientVersion(ctx, stakerConfig.Network, stakerConfig.ExecutionClientShortName); err == nil {
-		report.SnapshotClientVersion = version
-		logger.InfoWithPrefix(logPrefix, "Snapshot client version: %s", version)
-	} else {
-		logger.WarnWithPrefix(logPrefix, "Could not get snapshot client version: %v", err)
-	}
-
-	// DownloadAndExtractSnapshot
-	if err := timeOperation(report, "DownloadAndExtractSnapshot", func() error {
-		return e.Snapshots.DownloadAndExtract(ctx, stakerConfig.Network, stakerConfig.ExecutionClientShortName, volumeTarget)
-	}); err != nil {
-		return fmt.Errorf("failed to download and extract snapshot: %w", err)
-	}
-
-	// StartContainer
-	if err := timeOperation(report, "StartContainer", func() error {
-		return e.Docker.StartContainer(ctx, stakerConfig.ExecutionContainerName)
-	}); err != nil {
-		return fmt.Errorf("failed to start container: %w", err)
 	}
 
 	return nil

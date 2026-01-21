@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -20,8 +19,6 @@ type StakerConfig struct {
 	BeaconchainContainerName string // The name of the beaconchain container
 	ValidatorContainerName   string // The name of the validator container
 	ExecutionContainerName   string // The name of the container to mount the NFS volume to
-	ExecutionVolumeName      string // The name of the volume to mount for execution client data
-	ExecutionClientShortName string // Short name of the execution client (e.g., geth, nethermind, reth)
 }
 
 type Urls struct {
@@ -34,75 +31,22 @@ type Urls struct {
 const dappmanagerURL = "http://dappmanager.dappnode:7000"
 
 func StakerConfigForNetwork(pkg Pkg) StakerConfig {
-	network := getNetworkFromDnpName(pkg.DnpName)
-	var execClients, consClients []string
-	var web3signer, mevboost string
-	var relays []string = nil
-	var urls Urls
-
-	switch network {
-	case "gnosis":
-		execClients = []string{"nethermind-xdai.dnp.dappnode.eth", "gnosis-erigon.dnp.dappnode.eth"}
-		consClients = []string{"lighthouse-gnosis.dnp.dappnode.eth", "teku-gnosis.dnp.dappnode.eth", "nimbus-gnosis.dnp.dappnode.eth", "lodestar-gnosis.dnp.dappnode.eth"}
-		web3signer = "web3signer-hoodi.dnp.dappnode.eth"
-		mevboost = "mev-boost-hoodi.dnp.dappnode.eth"
-		relays = []string{}
-		urls = Urls{
-			ExecutionURL:   "http://execution.gnosis.dncore.dappnode:8545",
-			BrainURL:       "http://brain.web3signer-gnosis.dappnode:5000",
-			BeaconchainURL: "http://beacon-chain.gnosis.dncore.dappnode:3500",
-			DappmanagerURL: dappmanagerURL,
-		}
-	case "mainnet":
-		execClients = []string{"nethermind.public.dappnode.eth", "geth.dnp.dappnode.eth", "erigon.dnp.dappnode.eth", "reth.dnp.dappnode.eth", "besu.public.dappnode.eth"}
-		consClients = []string{"lighthouse.dnp.dappnode.eth", "prysm.dnp.dappnode.eth", "lodestar.dnp.dappnode.eth", "nimbus.dnp.dappnode.eth", "teku.dnp.dappnode.eth"}
-		web3signer = "web3signer.dnp.dappnode.eth"
-		mevboost = "mev-boost.dnp.dappnode.eth"
-		relays = []string{}
-		urls = Urls{
-			ExecutionURL:   "http://execution.mainnet.dncore.dappnode:8545",
-			BrainURL:       "http://brain.web3signer.dappnode:5000",
-			BeaconchainURL: "http://beacon-chain.mainnet.dncore.dappnode:3500",
-			DappmanagerURL: dappmanagerURL,
-		}
-	case "lukso":
-		execClients = []string{"lukso-geth.dnp.dappnode.eth"}
-		consClients = []string{"prysm-lukso.dnp.dappnode.eth", "teku-luks.dnp.dappnode.eth"}
-		web3signer = "web3signer-lukso.dnp.dappnode.eth"
-		mevboost = "mev-boost-lukso.dnp.dappnode.eth"
-		relays = []string{}
-		urls = Urls{
-			ExecutionURL:   "http://execution.lukso.dncore.dappnode:8545",
-			BrainURL:       "http://brain.web3signer-lukso.dappnode:5000",
-			BeaconchainURL: "http://beacon-chain.lukso.dncore.dappnode:3500",
-			DappmanagerURL: dappmanagerURL,
-		}
-	case "hoodi":
-		execClients = []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
-		consClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth"}
-		web3signer = "web3signer-hoodi.dnp.dappnode.eth"
-		mevboost = "mev-boost-hoodi.dnp.dappnode.eth"
-		relays = []string{}
-		urls = Urls{
-			ExecutionURL:   "http://execution.hoodi.dncore.dappnode:8545",
-			BrainURL:       "http://brain.web3signer-hoodi.dappnode:5000",
-			BeaconchainURL: "http://beacon-chain.hoodi.dncore.dappnode:3500",
-			DappmanagerURL: dappmanagerURL,
-		}
+	// Only hoodi network is supported
+	network := "hoodi"
+	execClients := []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
+	consClients := []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth"}
+	web3signer := "web3signer-hoodi.dnp.dappnode.eth"
+	mevboost := "mev-boost-hoodi.dnp.dappnode.eth"
+	relays := []string{}
+	urls := Urls{
+		ExecutionURL:   "http://execution.hoodi.dncore.dappnode:8545",
+		BrainURL:       "http://brain.web3signer-hoodi.dappnode:5000",
+		BeaconchainURL: "http://beacon-chain.hoodi.dncore.dappnode:3500",
+		DappmanagerURL: dappmanagerURL,
 	}
 
 	ecDnpName := matchOrRandom(pkg.DnpName, execClients)
 	ccDnpName := matchOrRandom(pkg.DnpName, consClients)
-
-	// List of known execution client short names
-	ecShortNames := []string{"geth", "nethermind", "erigon", "reth", "besu"}
-	ecShortDnpName := "unknown"
-	for _, short := range ecShortNames {
-		if strings.Contains(ecDnpName, short) {
-			ecShortDnpName = short
-			break
-		}
-	}
 
 	return StakerConfig{
 		ExecutionDnpName:         ecDnpName,
@@ -117,22 +61,6 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		BeaconchainContainerName: containerName("beacon-chain", ccDnpName),
 		ValidatorContainerName:   containerName("validator", ccDnpName),
 		ExecutionContainerName:   containerName(serviceNameFromExecutionClient(ecDnpName, network), ecDnpName),
-		ExecutionVolumeName:      composeVolumeName(pkg.DnpName, pkg.ComposeVolumeName),
-		ExecutionClientShortName: ecShortDnpName,
-	}
-}
-
-func getNetworkFromDnpName(dnpName string) string {
-	name := strings.ToLower(dnpName)
-	switch {
-	case strings.Contains(name, "gnosis"):
-		return "gnosis"
-	case strings.Contains(name, "hoodi"):
-		return "hoodi"
-	case strings.Contains(name, "lukso"):
-		return "lukso"
-	default:
-		return "mainnet"
 	}
 }
 
@@ -147,42 +75,4 @@ func matchOrRandom(dnpName string, candidates []string) string {
 	}
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return candidates[r.Intn(len(candidates))]
-}
-
-// Utility to get the servicename from a execution client (this utility assumes the service name is the first part of the dnp name)
-// e.g hoodi-nethermind.dnp.dappnode.eth -> nethermind
-// e.g nethermind-hoodi.dnp.dappnode.eth -> nethermind
-// e.g nethermind-hoodi.public.dappnode.eth -> nethermind
-// e.g geth.dnp.dappnode.eth -> geth
-// e.g reth-gnosis.dnp.dappnode.eth -> reth
-// e.g gnosis-reth.dnp.dappnode.eth -> reth
-func serviceNameFromExecutionClient(dnpName, network string) string {
-	trimmed := strings.TrimSuffix(dnpName, ".dnp.dappnode.eth")
-	trimmed = strings.TrimSuffix(trimmed, ".public.dappnode.eth")
-	parts := strings.Split(trimmed, "-")
-
-	// If there is only one part, return it
-	if len(parts) == 1 {
-		return parts[0]
-	}
-	// If there are multiple parts, find and remove the network part
-	for i, part := range parts {
-		if part == network {
-			parts = append(parts[:i], parts[i+1:]...)
-			break
-		}
-	}
-	// Return the remaining parts joined by "-"
-	return strings.Join(parts, "-")
-}
-
-// Utility to get the container name from service and dnpName. append dnp or public suffix depending on original dnpName
-func containerName(serviceName, dnpName string) string {
-	return fmt.Sprintf("DAppNodePackage-%s.%s", serviceName, dnpName)
-}
-
-// Utility to get the docker volume name from dnpName and compose volume name
-// i.e hoodi-nethermind.dnp.dappnode.eth -> hoodi-netherminddnpdappnodeeth_<composeVolumeName>
-func composeVolumeName(dnpName, composeVolumeName string) string {
-	return fmt.Sprintf("%s_%s", strings.ReplaceAll(dnpName, ".", ""), composeVolumeName)
 }

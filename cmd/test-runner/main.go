@@ -21,7 +21,7 @@ import (
 	"syscall"
 )
 
-var logPrefix = "MAIN"
+var logPrefix = "TEST_RUNNER"
 
 func main() {
 	logger.InfoWithPrefix(logPrefix, "Starting Notifications service")
@@ -117,7 +117,6 @@ func printStakerConfig(prefix string, sc domain.StakerConfig) {
   MevBoostDnpName: %s
   Network: %s
   ExecutionContainerName: %s
-  ExecutionClientShortName: %s
   Urls:
     ExecutionURL: %s
     BrainURL: %s
@@ -130,7 +129,6 @@ func printStakerConfig(prefix string, sc domain.StakerConfig) {
 		sc.MevBoostDnpName,
 		sc.Network,
 		sc.ExecutionContainerName,
-		sc.ExecutionClientShortName,
 		sc.Urls.ExecutionURL,
 		sc.Urls.BrainURL,
 		sc.Urls.BeaconchainURL,

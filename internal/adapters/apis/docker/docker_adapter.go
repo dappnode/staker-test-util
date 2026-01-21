@@ -204,3 +204,23 @@ func (d *DockerAdapter) CollectAllContainerErrorLogs(ctx context.Context, contai
 
 	return result
 }
+
+// StopContainer stops a container by name
+func (d *DockerAdapter) StopContainer(ctx context.Context, containerName string) error {
+	logger.DebugWithPrefix(d.logPrefix, "StopContainer: stopping container %s", containerName)
+
+	// Check if container exists first
+	_, err := d.cli.ContainerInspect(ctx, containerName)
+	if err != nil {
+		logger.WarnWithPrefix(d.logPrefix, "StopContainer: container %s not found or not accessible: %v", containerName, err)
+		return nil // Return nil - container might not exist
+	}
+
+	if err := d.cli.ContainerStop(ctx, containerName, container.StopOptions{}); err != nil {
+		logger.ErrorWithPrefix(d.logPrefix, "StopContainer: failed to stop container: %v", err)
+		return fmt.Errorf("failed to stop container: %w", err)
+	}
+
+	logger.DebugWithPrefix(d.logPrefix, "StopContainer: stopped container %s", containerName)
+	return nil
+}
