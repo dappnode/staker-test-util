@@ -2,15 +2,12 @@ package progress
 
 import (
 	"clients-test/internal/application/domain"
-	"clients-test/internal/logger"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 )
-
-var logPrefix = "ProgressAdapter"
 
 // ProgressAdapter handles the .download_in_progress file operations
 type ProgressAdapter struct {
@@ -39,7 +36,6 @@ func (p *ProgressAdapter) progressFilePath() string {
 // SetDownloadInProgress creates the .download_in_progress file
 func (p *ProgressAdapter) SetDownloadInProgress(ctx context.Context) error {
 	filePath := p.progressFilePath()
-	logger.InfoWithPrefix(logPrefix, "Setting download in progress at %s", filePath)
 
 	if err := os.MkdirAll(p.basePath, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", p.basePath, err)
@@ -62,7 +58,6 @@ func (p *ProgressAdapter) SetDownloadInProgress(ctx context.Context) error {
 // ClearDownloadInProgress removes the .download_in_progress file
 func (p *ProgressAdapter) ClearDownloadInProgress(ctx context.Context) error {
 	filePath := p.progressFilePath()
-	logger.InfoWithPrefix(logPrefix, "Clearing download in progress at %s", filePath)
 
 	err := os.Remove(filePath)
 	if err != nil && !os.IsNotExist(err) {
@@ -88,8 +83,6 @@ func (p *ProgressAdapter) IsDownloadInProgress(ctx context.Context) (bool, error
 // WaitForDownloadComplete waits until no download is in progress
 // Returns an error if the context is cancelled or times out
 func (p *ProgressAdapter) WaitForDownloadComplete(ctx context.Context, checkInterval time.Duration) error {
-	logger.InfoWithPrefix(logPrefix, "Waiting for downloads to complete")
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -101,11 +94,9 @@ func (p *ProgressAdapter) WaitForDownloadComplete(ctx context.Context, checkInte
 			}
 
 			if !inProgress {
-				logger.InfoWithPrefix(logPrefix, "No downloads in progress, continuing")
 				return nil
 			}
 
-			logger.InfoWithPrefix(logPrefix, "Download in progress, waiting %v...", checkInterval)
 			time.Sleep(checkInterval)
 		}
 	}

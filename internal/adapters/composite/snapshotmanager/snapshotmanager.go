@@ -9,14 +9,11 @@ import (
 	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/application/domain"
-	"clients-test/internal/logger"
 )
 
 const (
 	downloadContainerPrefix = "snapshot-download-"
 )
-
-var logPrefix = "SnapshotManager"
 
 // SnapshotManagerAdapter is a composite adapter that combines snapshots, docker, and blocknumber adapters
 // to provide high-level snapshot management operations
@@ -49,7 +46,6 @@ func (s *SnapshotManagerAdapter) NeedsSnapshotDownload(ctx context.Context, clie
 	}
 
 	if !exists {
-		logger.InfoWithPrefix(logPrefix, "No existing snapshot for %s, download needed", client.ShortName)
 		return true, nil
 	}
 
@@ -59,14 +55,7 @@ func (s *SnapshotManagerAdapter) NeedsSnapshotDownload(ctx context.Context, clie
 		return false, err
 	}
 
-	if isNewer {
-		currentBlock, _ := s.blockNumber.ReadBlockNumber(ctx, client.VolumeTargetPath)
-		logger.InfoWithPrefix(logPrefix, "Newer snapshot available for %s: current=%s, latest=%s",
-			client.ShortName, currentBlock, latestBlockNumber)
-		return true, nil
-	}
-
-	return false, nil
+	return isNewer, nil
 }
 
 // DownloadAndMountSnapshot performs the complete snapshot download and mount process:
@@ -80,18 +69,11 @@ func (s *SnapshotManagerAdapter) DownloadAndMountSnapshot(ctx context.Context, n
 		return fmt.Errorf("failed to get latest block number: %w", err)
 	}
 
-	logger.InfoWithPrefix(logPrefix, "Starting snapshot download for %s (block %s)", client.ShortName, latestBlockNumber)
-
-	// 1. Stop the container (if running)
-	logger.InfoWithPrefix(logPrefix, "Stopping container %s", client.ContainerName)
-	if err := s.docker.StopContainer(ctx, client.ContainerName); err != nil {
-		// Log but don't fail - container might not exist or not be running
-		logger.WarnWithPrefix(logPrefix, "Could not stop container %s: %v", client.ContainerName, err)
-	}
+	// 1. Stop the container (if running) - ignore errors as container might not exist
+	_ = s.docker.StopContainer(ctx, client.ContainerName)
 
 	// 2. Download and extract snapshot to volume using Docker container
 	containerName := fmt.Sprintf("%s%s", downloadContainerPrefix, client.ShortName)
-	logger.InfoWithPrefix(logPrefix, "Downloading and extracting snapshot to %s", client.VolumeTargetPath)
 	if err := s.docker.RunSnapshotDownload(ctx, containerName, client.ShortName, network, client.VolumeTargetPath, s.snapshots.GetBaseURL()); err != nil {
 		return fmt.Errorf("failed to download and extract snapshot: %w", err)
 	}
@@ -100,9 +82,6 @@ func (s *SnapshotManagerAdapter) DownloadAndMountSnapshot(ctx context.Context, n
 	if err := s.blockNumber.WriteBlockNumber(ctx, client.VolumeTargetPath, latestBlockNumber); err != nil {
 		return fmt.Errorf("failed to write block number: %w", err)
 	}
-
-	logger.InfoWithPrefix(logPrefix, "Successfully downloaded and mounted snapshot for %s (block %s)",
-		client.ShortName, latestBlockNumber)
 
 	return nil
 }
@@ -114,16 +93,12 @@ func (s *SnapshotManagerAdapter) GetLatestBlockNumber(ctx context.Context, netwo
 
 // StopAllDownloads stops all running snapshot download containers in parallel
 func (s *SnapshotManagerAdapter) StopAllDownloads(ctx context.Context) {
-	logger.InfoWithPrefix(logPrefix, "Stopping all snapshot download containers...")
-
 	containerIDs, err := s.docker.ListContainersByPrefix(ctx, downloadContainerPrefix)
 	if err != nil {
-		logger.WarnWithPrefix(logPrefix, "Failed to list download containers: %v", err)
 		return
 	}
 
 	if len(containerIDs) == 0 {
-		logger.DebugWithPrefix(logPrefix, "No download containers running")
 		return
 	}
 
@@ -133,13 +108,8 @@ func (s *SnapshotManagerAdapter) StopAllDownloads(ctx context.Context) {
 		wg.Add(1)
 		go func(containerID string) {
 			defer wg.Done()
-			logger.InfoWithPrefix(logPrefix, "Stopping download container %s", containerID)
-			if err := s.docker.StopContainerWithTimeout(ctx, containerID, 5); err != nil {
-				logger.WarnWithPrefix(logPrefix, "Failed to stop container %s: %v", containerID, err)
-			}
+			_ = s.docker.StopContainerWithTimeout(ctx, containerID, 5)
 		}(id)
 	}
 	wg.Wait()
-
-	logger.InfoWithPrefix(logPrefix, "All download containers stopped")
 }

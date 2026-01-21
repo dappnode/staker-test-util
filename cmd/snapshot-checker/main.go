@@ -82,8 +82,8 @@ func main() {
 	go func() {
 		sig := <-sigs
 		logger.InfoWithPrefix(logPrefix, "Received signal: %v, shutting down...", sig)
-		// Stop any running download containers
-		service.GetSnapshotManager().StopAllDownloads(context.Background())
+		// Stop any running download containers using the service method
+		service.StopAllDownloads(context.Background())
 		// Best-effort cleanup: clear marker file so next run isn't blocked.
 		if err := progressAdapter.ClearDownloadInProgress(context.Background()); err != nil {
 			logger.WarnWithPrefix(logPrefix, "Failed to clear %s marker on shutdown: %v", domain.ProgressFileName, err)

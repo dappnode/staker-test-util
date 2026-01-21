@@ -7,8 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	"clients-test/internal/logger"
 )
 
 const (
@@ -16,21 +14,18 @@ const (
 )
 
 type SnapshotsAdapter struct {
-	baseURL   string
-	logPrefix string
+	baseURL string
 }
 
 func NewSnapshotsAdapter() *SnapshotsAdapter {
 	return &SnapshotsAdapter{
-		baseURL:   defaultBaseURL,
-		logPrefix: "SnapshotsAdapter",
+		baseURL: defaultBaseURL,
 	}
 }
 
 func NewSnapshotsAdapterWithURL(baseURL string) *SnapshotsAdapter {
 	return &SnapshotsAdapter{
-		baseURL:   baseURL,
-		logPrefix: "SnapshotsAdapter",
+		baseURL: baseURL,
 	}
 }
 
@@ -42,7 +37,6 @@ func (s *SnapshotsAdapter) GetBaseURL() string {
 // GetLatestBlockNumber fetches the latest available block number for a given network and client
 func (s *SnapshotsAdapter) GetLatestBlockNumber(ctx context.Context, network, client string) (string, error) {
 	url := fmt.Sprintf("%s/%s/%s/latest", s.baseURL, network, client)
-	logger.DebugWithPrefix(s.logPrefix, "Fetching latest block number from %s", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -65,7 +59,6 @@ func (s *SnapshotsAdapter) GetLatestBlockNumber(ctx context.Context, network, cl
 	}
 
 	blockNumber := strings.TrimSpace(string(body))
-	logger.DebugWithPrefix(s.logPrefix, "Latest block number for %s/%s: %s", network, client, blockNumber)
 	return blockNumber, nil
 }
 
@@ -78,7 +71,6 @@ func (s *SnapshotsAdapter) GetSnapshotURL(network, client, blockNumber string) s
 // The version is retrieved from the _snapshot_web3_clientVersion.json file
 func (s *SnapshotsAdapter) GetClientVersion(ctx context.Context, network, client, blockNumber string) (string, error) {
 	url := fmt.Sprintf("%s/%s/%s/%s/_snapshot_web3_clientVersion.json", s.baseURL, network, client, blockNumber)
-	logger.DebugWithPrefix(s.logPrefix, "Fetching client version from %s", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -102,7 +94,6 @@ func (s *SnapshotsAdapter) GetClientVersion(ctx context.Context, network, client
 		return "", fmt.Errorf("failed to decode client version response: %w", err)
 	}
 
-	logger.DebugWithPrefix(s.logPrefix, "Client version for %s/%s/%s: %s", network, client, blockNumber, result.Result)
 	return result.Result, nil
 }
 

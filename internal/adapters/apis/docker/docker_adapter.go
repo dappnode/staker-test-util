@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"clients-test/internal/logger"
-
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
@@ -20,8 +18,7 @@ import (
 )
 
 type DockerAdapter struct {
-	cli       *client.Client
-	logPrefix string
+	cli *client.Client
 }
 
 func NewDockerAdapter() (*DockerAdapter, error) {
@@ -29,15 +26,13 @@ func NewDockerAdapter() (*DockerAdapter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DockerAdapter{cli: cli, logPrefix: "DockerAdapter"}, nil
+	return &DockerAdapter{cli: cli}, nil
 }
 
 // StopAndGetVolumeTarget stops the container, checks for a single volume, and returns the volume target path
 func (d *DockerAdapter) StopAndGetVolumeTarget(ctx context.Context, containerName string, containerVolumeName string) (string, error) {
-	logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: inspecting container %s", containerName)
 	containerJSON, err := d.cli.ContainerInspect(ctx, containerName)
 	if err != nil {
-		logger.ErrorWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: failed to inspect container: %v", err)
 		return "", fmt.Errorf("failed to inspect container: %w", err)
 	}
 
@@ -49,15 +44,11 @@ func (d *DockerAdapter) StopAndGetVolumeTarget(ctx context.Context, containerNam
 			volumeName := mount.Name
 
 			volumeTarget := fmt.Sprintf("/var/lib/docker/volumes/%s/_data", volumeName)
-			logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: volumeName=%s volumeTarget=%s", volumeName, volumeTarget)
 
 			// Stop the container
-			logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: stopping container %s", containerName)
 			if err := d.cli.ContainerStop(ctx, containerName, container.StopOptions{}); err != nil {
-				logger.ErrorWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: failed to stop container: %v", err)
 				return "", fmt.Errorf("failed to stop container: %w", err)
 			}
-			logger.DebugWithPrefix(d.logPrefix, "StopAndGetVolumeTarget: stopped container %s", containerName)
 
 			return volumeTarget, nil
 		}
@@ -68,24 +59,18 @@ func (d *DockerAdapter) StopAndGetVolumeTarget(ctx context.Context, containerNam
 
 // StartContainer starts the given container
 func (d *DockerAdapter) StartContainer(ctx context.Context, containerName string) error {
-	logger.DebugWithPrefix(d.logPrefix, "StartContainer: starting container %s", containerName)
 	if err := d.cli.ContainerStart(ctx, containerName, container.StartOptions{}); err != nil {
-		logger.ErrorWithPrefix(d.logPrefix, "StartContainer: failed to start container: %v", err)
 		return fmt.Errorf("failed to start container: %w", err)
 	}
-	logger.DebugWithPrefix(d.logPrefix, "StartContainer: started container %s", containerName)
 	return nil
 }
 
 // GetContainerErrorLogs retrieves error logs from a container within a time range
 // Returns up to maxLines error lines (lines containing "error", "err", "fatal", "panic", etc.)
 func (d *DockerAdapter) GetContainerErrorLogs(ctx context.Context, containerName string, since, until time.Time, maxLines int) ([]string, error) {
-	logger.DebugWithPrefix(d.logPrefix, "GetContainerErrorLogs: fetching logs for container %s from %v to %v", containerName, since, until)
-
 	// Check if container exists first
 	_, err := d.cli.ContainerInspect(ctx, containerName)
 	if err != nil {
-		logger.WarnWithPrefix(d.logPrefix, "GetContainerErrorLogs: container %s not found or not accessible: %v", containerName, err)
 		return nil, nil // Return nil instead of error - container might not exist yet
 	}
 
@@ -99,7 +84,6 @@ func (d *DockerAdapter) GetContainerErrorLogs(ctx context.Context, containerName
 
 	reader, err := d.cli.ContainerLogs(ctx, containerName, options)
 	if err != nil {
-		logger.WarnWithPrefix(d.logPrefix, "GetContainerErrorLogs: failed to get logs for %s: %v", containerName, err)
 		return nil, nil // Return nil instead of error - might be transient
 	}
 	defer reader.Close()
@@ -146,7 +130,6 @@ func (d *DockerAdapter) GetContainerErrorLogs(ctx context.Context, containerName
 				}
 				errorLines = append(errorLines, lineStr)
 				if len(errorLines) >= maxLines {
-					logger.DebugWithPrefix(d.logPrefix, "GetContainerErrorLogs: found %d error lines for %s (max reached)", len(errorLines), containerName)
 					return errorLines, nil
 				}
 				break
@@ -185,7 +168,6 @@ func (d *DockerAdapter) GetContainerErrorLogs(ctx context.Context, containerName
 		}
 	}
 
-	logger.DebugWithPrefix(d.logPrefix, "GetContainerErrorLogs: found %d error lines for %s", len(errorLines), containerName)
 	return errorLines, nil
 }
 
@@ -199,7 +181,6 @@ func (d *DockerAdapter) CollectAllContainerErrorLogs(ctx context.Context, contai
 		}
 		lines, err := d.GetContainerErrorLogs(ctx, name, since, until, maxLinesPerContainer)
 		if err != nil {
-			logger.WarnWithPrefix(d.logPrefix, "CollectAllContainerErrorLogs: error collecting logs for %s: %v", name, err)
 			continue
 		}
 		if len(lines) > 0 {
@@ -212,28 +193,21 @@ func (d *DockerAdapter) CollectAllContainerErrorLogs(ctx context.Context, contai
 
 // StopContainer stops a container by name
 func (d *DockerAdapter) StopContainer(ctx context.Context, containerName string) error {
-	logger.DebugWithPrefix(d.logPrefix, "StopContainer: stopping container %s", containerName)
-
 	// Check if container exists first
 	_, err := d.cli.ContainerInspect(ctx, containerName)
 	if err != nil {
-		logger.WarnWithPrefix(d.logPrefix, "StopContainer: container %s not found or not accessible: %v", containerName, err)
 		return nil // Return nil - container might not exist
 	}
 
 	if err := d.cli.ContainerStop(ctx, containerName, container.StopOptions{}); err != nil {
-		logger.ErrorWithPrefix(d.logPrefix, "StopContainer: failed to stop container: %v", err)
 		return fmt.Errorf("failed to stop container: %w", err)
 	}
 
-	logger.DebugWithPrefix(d.logPrefix, "StopContainer: stopped container %s", containerName)
 	return nil
 }
 
 // ListContainersByPrefix returns a list of container IDs that match the given name prefix
 func (d *DockerAdapter) ListContainersByPrefix(ctx context.Context, prefix string) ([]string, error) {
-	logger.DebugWithPrefix(d.logPrefix, "ListContainersByPrefix: listing containers with prefix %s", prefix)
-
 	filterArgs := filters.NewArgs()
 	filterArgs.Add("name", prefix)
 
@@ -249,20 +223,16 @@ func (d *DockerAdapter) ListContainersByPrefix(ctx context.Context, prefix strin
 		ids = append(ids, c.ID)
 	}
 
-	logger.DebugWithPrefix(d.logPrefix, "ListContainersByPrefix: found %d containers with prefix %s", len(ids), prefix)
 	return ids, nil
 }
 
 // StopContainerWithTimeout stops a container by ID with a specific timeout in seconds
 func (d *DockerAdapter) StopContainerWithTimeout(ctx context.Context, containerID string, timeoutSeconds int) error {
-	logger.DebugWithPrefix(d.logPrefix, "StopContainerWithTimeout: stopping container %s with timeout %ds", containerID, timeoutSeconds)
-
 	timeout := timeoutSeconds
 	if err := d.cli.ContainerStop(ctx, containerID, container.StopOptions{Timeout: &timeout}); err != nil {
 		return fmt.Errorf("failed to stop container: %w", err)
 	}
 
-	logger.DebugWithPrefix(d.logPrefix, "StopContainerWithTimeout: stopped container %s", containerID)
 	return nil
 }
 
@@ -272,9 +242,8 @@ const (
 
 // RunSnapshotDownload runs an Alpine container to download and extract a snapshot
 // Uses aria2c for parallel HTTP range request downloads and zstd for decompression
+// Returns the duration of the download operation
 func (d *DockerAdapter) RunSnapshotDownload(ctx context.Context, containerName, clientName, network, targetPath, baseURL string) error {
-	logger.InfoWithPrefix(d.logPrefix, "RunSnapshotDownload: starting download for %s to %s", clientName, targetPath)
-
 	// Pull alpine image if not present
 	if err := d.ensureImage(ctx, alpineImage); err != nil {
 		return fmt.Errorf("failed to ensure alpine image: %w", err)
@@ -336,9 +305,7 @@ echo "[%s] Snapshot extraction complete"
 		Stdout: true,
 		Stderr: true,
 	})
-	if err != nil {
-		logger.WarnWithPrefix(d.logPrefix, "Failed to attach to container: %v", err)
-	} else {
+	if err == nil {
 		defer attachResp.Close()
 		// Copy output to stdout/stderr in a goroutine
 		go func() {
@@ -347,7 +314,6 @@ echo "[%s] Snapshot extraction complete"
 	}
 
 	// Wait for container to finish
-	start := time.Now()
 	statusCh, errCh := d.cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 
 	select {
@@ -361,8 +327,6 @@ echo "[%s] Snapshot extraction complete"
 		}
 	}
 
-	elapsed := time.Since(start)
-	logger.InfoWithPrefix(d.logPrefix, "RunSnapshotDownload: completed in %s", elapsed)
 	return nil
 }
 
@@ -374,7 +338,6 @@ func (d *DockerAdapter) ensureImage(ctx context.Context, imageName string) error
 		return nil // Image already exists
 	}
 
-	logger.InfoWithPrefix(d.logPrefix, "Pulling image %s", imageName)
 	reader, err := d.cli.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to pull image: %w", err)
@@ -384,6 +347,5 @@ func (d *DockerAdapter) ensureImage(ctx context.Context, imageName string) error
 	// Discard the output but wait for pull to complete
 	_, _ = io.Copy(io.Discard, reader)
 
-	logger.InfoWithPrefix(d.logPrefix, "Successfully pulled image %s", imageName)
 	return nil
 }

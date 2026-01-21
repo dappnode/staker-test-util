@@ -2,7 +2,6 @@ package blocknumber
 
 import (
 	"clients-test/internal/application/domain"
-	"clients-test/internal/logger"
 	"context"
 	"fmt"
 	"os"
@@ -10,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-var logPrefix = "BlockNumberAdapter"
 
 // BlockNumberAdapter handles the snapshot_block_number file operations
 type BlockNumberAdapter struct{}
@@ -29,7 +26,6 @@ func (b *BlockNumberAdapter) blockNumberFilePath(volumeTargetPath string) string
 // WriteBlockNumber writes the block number to the snapshot_block_number file in the volume
 func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, volumeTargetPath string, blockNumber string) error {
 	filePath := b.blockNumberFilePath(volumeTargetPath)
-	logger.InfoWithPrefix(logPrefix, "Writing block number %s to %s", blockNumber, filePath)
 
 	// Ensure directory exists
 	if err := os.MkdirAll(volumeTargetPath, 0755); err != nil {
@@ -58,14 +54,12 @@ func (b *BlockNumberAdapter) ReadBlockNumber(ctx context.Context, volumeTargetPa
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			logger.DebugWithPrefix(logPrefix, "Block number file does not exist at %s", filePath)
 			return "", nil
 		}
 		return "", fmt.Errorf("failed to read block number file: %w", err)
 	}
 
 	blockNumber := strings.TrimSpace(string(data))
-	logger.DebugWithPrefix(logPrefix, "Read block number %s from %s", blockNumber, filePath)
 	return blockNumber, nil
 }
 
