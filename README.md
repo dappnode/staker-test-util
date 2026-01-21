@@ -141,11 +141,10 @@ docker-compose up --build
 - [x] Measure the time it takes every process in the test and add it to the report
 - [x] Collect logs from containers and create a report
 - [x] Add to the report the clients used
-- [ ] Implement timer check in the snapshot checker
+- [x] Implement timer check in the snapshot checker
 - [ ] The test runner must remove the clients or unset the staker config on exit
-- [ ] Implement a composite adapter for the snapshot checker
-- [ ] Implement time tracker in the snapshot checker service to measure time taken for each action, specially download and extraction of snapshots
-- [ ] Implement snapshot cleaner on signal interrupt or termination to avoid corrupted snapshots
+- [x] Implement a composite adapter for the snapshot checker
+- [x] Implement time tracker in the snapshot checker service to measure time taken for each action, specially download and extraction of snapshots
 - [ ] Auto-updates for this dappnode must run much more often than production, so clients are always updated to latest versions
 - [ ] Research how to release this SDK tool to be run from a github action directly
 - [ ] Implement when manual trigger (`workflow_dispatch`) the clients will be passed as inputs, use them to create the staker config for the test
@@ -160,3 +159,5 @@ docker-compose up --build
 - [ ] Consider adding to report beaconcha validator url
 - [ ] Consider adding support for multiple networks (mainnet, prater, etc.)
 - [ ] Consider setting keystore and password through github secrets.
+- [ ] How to ensure IPFS resilience, it must resolve production and dev IPFS hashes!
+- [ ] Pass all the time measured in the ensurer and or runner and or cleaner to the test runner service for printing and report
