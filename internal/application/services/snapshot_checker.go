@@ -1,11 +1,8 @@
 package services
 
 import (
-	"clients-test/internal/adapters/apis/docker"
-	"clients-test/internal/adapters/apis/snapshots"
-	"clients-test/internal/adapters/shared/blocknumber"
-	"clients-test/internal/adapters/shared/progress"
 	"clients-test/internal/application/domain"
+	"clients-test/internal/application/ports"
 	"clients-test/internal/logger"
 	"context"
 	"fmt"
@@ -17,28 +14,27 @@ var snapshotLogPrefix = "SnapshotChecker"
 
 // SnapshotCheckerService handles snapshot checking and downloading
 type SnapshotCheckerService struct {
-	snapshots   *snapshots.SnapshotsAdapter
-	docker      *docker.DockerAdapter
-	progress    *progress.ProgressAdapter
-	blockNumber *blocknumber.BlockNumberAdapter
-	config      domain.SnapshotCheckerConfig
+	snapshotManager ports.SnapshotManager
+	progress        ports.DownloadProgress
+	config          domain.SnapshotCheckerConfig
 }
 
 // NewSnapshotCheckerService creates a new SnapshotCheckerService
 func NewSnapshotCheckerService(
-	snapshotsAdapter *snapshots.SnapshotsAdapter,
-	dockerAdapter *docker.DockerAdapter,
-	progressAdapter *progress.ProgressAdapter,
-	blockNumberAdapter *blocknumber.BlockNumberAdapter,
+	snapshotManager ports.SnapshotManager,
+	progress ports.DownloadProgress,
 	config domain.SnapshotCheckerConfig,
 ) *SnapshotCheckerService {
 	return &SnapshotCheckerService{
-		snapshots:   snapshotsAdapter,
-		docker:      dockerAdapter,
-		progress:    progressAdapter,
-		blockNumber: blockNumberAdapter,
-		config:      config,
+		snapshotManager: snapshotManager,
+		progress:        progress,
+		config:          config,
 	}
+}
+
+// GetSnapshotManager returns the snapshot manager adapter (for shutdown handling)
+func (s *SnapshotCheckerService) GetSnapshotManager() ports.SnapshotManager {
+	return s.snapshotManager
 }
 
 // Start starts the snapshot checker cron job
@@ -145,14 +141,14 @@ func (s *SnapshotCheckerService) checkAndUpdateClient(ctx context.Context, clien
 	logger.InfoWithPrefix(snapshotLogPrefix, "Checking client: %s (%s)", client.ShortName, client.DnpName)
 
 	// Get latest available block number from ethpandaops
-	latestBlockNumber, err := s.snapshots.GetLatestBlockNumber(ctx, s.config.Network, client.ShortName)
+	latestBlockNumber, err := s.snapshotManager.GetLatestBlockNumber(ctx, s.config.Network, client.ShortName)
 	if err != nil {
 		return fmt.Errorf("failed to get latest block number: %w", err)
 	}
 	logger.InfoWithPrefix(snapshotLogPrefix, "Latest available snapshot for %s: block %s", client.ShortName, latestBlockNumber)
 
-	// Check if we need to download
-	needsDownload, err := s.needsSnapshotDownload(ctx, client, latestBlockNumber)
+	// Check if we need to download (delegated to composite adapter)
+	needsDownload, err := s.snapshotManager.NeedsSnapshotDownload(ctx, client, latestBlockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to check if snapshot needed: %w", err)
 	}
@@ -162,67 +158,10 @@ func (s *SnapshotCheckerService) checkAndUpdateClient(ctx context.Context, clien
 		return nil
 	}
 
-	// Download and mount snapshot
-	if err := s.downloadAndMountSnapshot(ctx, client, latestBlockNumber); err != nil {
+	// Download and mount snapshot (delegated to composite adapter)
+	if err := s.snapshotManager.DownloadAndMountSnapshot(ctx, s.config.Network, client); err != nil {
 		return fmt.Errorf("failed to download and mount snapshot: %w", err)
 	}
-
-	return nil
-}
-
-// needsSnapshotDownload determines if a snapshot needs to be downloaded
-func (s *SnapshotCheckerService) needsSnapshotDownload(ctx context.Context, client domain.ExecutionClientInfo, latestBlockNumber string) (bool, error) {
-	// Check if block number file exists
-	exists, err := s.blockNumber.BlockNumberExists(ctx, client.VolumeTargetPath)
-	if err != nil {
-		return false, err
-	}
-
-	if !exists {
-		logger.InfoWithPrefix(snapshotLogPrefix, "No existing snapshot for %s, download needed", client.ShortName)
-		return true, nil
-	}
-
-	// Check if newer snapshot is available
-	isNewer, err := s.blockNumber.IsNewerSnapshot(ctx, client.VolumeTargetPath, latestBlockNumber)
-	if err != nil {
-		return false, err
-	}
-
-	if isNewer {
-		currentBlock, _ := s.blockNumber.ReadBlockNumber(ctx, client.VolumeTargetPath)
-		logger.InfoWithPrefix(snapshotLogPrefix, "Newer snapshot available for %s: current=%s, latest=%s",
-			client.ShortName, currentBlock, latestBlockNumber)
-		return true, nil
-	}
-
-	return false, nil
-}
-
-// downloadAndMountSnapshot performs the complete snapshot download and mount process
-func (s *SnapshotCheckerService) downloadAndMountSnapshot(ctx context.Context, client domain.ExecutionClientInfo, blockNumber string) error {
-	logger.InfoWithPrefix(snapshotLogPrefix, "Starting snapshot download for %s (block %s)", client.ShortName, blockNumber)
-
-	// 1. Stop the container (if running)
-	logger.InfoWithPrefix(snapshotLogPrefix, "Stopping container %s", client.ContainerName)
-	if err := s.docker.StopContainer(ctx, client.ContainerName); err != nil {
-		// Log but don't fail - container might not exist or not be running
-		logger.WarnWithPrefix(snapshotLogPrefix, "Could not stop container %s: %v", client.ContainerName, err)
-	}
-
-	// 2. Download and extract snapshot to volume
-	logger.InfoWithPrefix(snapshotLogPrefix, "Downloading and extracting snapshot to %s", client.VolumeTargetPath)
-	if err := s.snapshots.DownloadAndExtract(ctx, s.config.Network, client.ShortName, client.VolumeTargetPath); err != nil {
-		return fmt.Errorf("failed to download and extract snapshot: %w", err)
-	}
-
-	// 3. Write block number file
-	if err := s.blockNumber.WriteBlockNumber(ctx, client.VolumeTargetPath, blockNumber); err != nil {
-		return fmt.Errorf("failed to write block number: %w", err)
-	}
-
-	logger.InfoWithPrefix(snapshotLogPrefix, "Successfully downloaded and mounted snapshot for %s (block %s)",
-		client.ShortName, blockNumber)
 
 	return nil
 }

@@ -5,13 +5,18 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
 	"clients-test/internal/logger"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 type DockerAdapter struct {
@@ -222,5 +227,163 @@ func (d *DockerAdapter) StopContainer(ctx context.Context, containerName string)
 	}
 
 	logger.DebugWithPrefix(d.logPrefix, "StopContainer: stopped container %s", containerName)
+	return nil
+}
+
+// ListContainersByPrefix returns a list of container IDs that match the given name prefix
+func (d *DockerAdapter) ListContainersByPrefix(ctx context.Context, prefix string) ([]string, error) {
+	logger.DebugWithPrefix(d.logPrefix, "ListContainersByPrefix: listing containers with prefix %s", prefix)
+
+	filterArgs := filters.NewArgs()
+	filterArgs.Add("name", prefix)
+
+	containers, err := d.cli.ContainerList(ctx, container.ListOptions{
+		Filters: filterArgs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list containers: %w", err)
+	}
+
+	var ids []string
+	for _, c := range containers {
+		ids = append(ids, c.ID)
+	}
+
+	logger.DebugWithPrefix(d.logPrefix, "ListContainersByPrefix: found %d containers with prefix %s", len(ids), prefix)
+	return ids, nil
+}
+
+// StopContainerWithTimeout stops a container by ID with a specific timeout in seconds
+func (d *DockerAdapter) StopContainerWithTimeout(ctx context.Context, containerID string, timeoutSeconds int) error {
+	logger.DebugWithPrefix(d.logPrefix, "StopContainerWithTimeout: stopping container %s with timeout %ds", containerID, timeoutSeconds)
+
+	timeout := timeoutSeconds
+	if err := d.cli.ContainerStop(ctx, containerID, container.StopOptions{Timeout: &timeout}); err != nil {
+		return fmt.Errorf("failed to stop container: %w", err)
+	}
+
+	logger.DebugWithPrefix(d.logPrefix, "StopContainerWithTimeout: stopped container %s", containerID)
+	return nil
+}
+
+const (
+	alpineImage = "alpine:latest"
+)
+
+// RunSnapshotDownload runs an Alpine container to download and extract a snapshot
+// Uses aria2c for parallel HTTP range request downloads and zstd for decompression
+func (d *DockerAdapter) RunSnapshotDownload(ctx context.Context, containerName, clientName, network, targetPath, baseURL string) error {
+	logger.InfoWithPrefix(d.logPrefix, "RunSnapshotDownload: starting download for %s to %s", clientName, targetPath)
+
+	// Pull alpine image if not present
+	if err := d.ensureImage(ctx, alpineImage); err != nil {
+		return fmt.Errorf("failed to ensure alpine image: %w", err)
+	}
+
+	// Build the shell script for download and extraction
+	// Optimizations:
+	// - aria2c -x16 -s16: 16 parallel connections using HTTP range requests
+	// - zstd -T0: multi-threaded decompression using all CPU cores
+	// - No -v flag on tar: avoid printing every filename (major speedup)
+	shellScript := fmt.Sprintf(`
+set -e
+apk add --no-cache aria2 tar zstd pv bash curl > /dev/null 2>&1
+BLOCK_NUMBER=$(curl -sf %s/%s/%s/latest)
+SNAPSHOT_URL="%s/%s/%s/${BLOCK_NUMBER}/snapshot.tar.zst"
+echo "[%s] Downloading snapshot for block number: ${BLOCK_NUMBER}"
+echo "[%s] Using 16 parallel connections with HTTP range requests"
+aria2c -x16 -s16 --file-allocation=none --console-log-level=warn --summary-interval=30 --show-console-readout=false -d /data -o snapshot.tar.zst "${SNAPSHOT_URL}" 2>&1 | awk '/^\[#/{print "[%s] " $0; fflush()}'
+echo "[%s] Download complete. Extracting with $(nproc) CPU cores..."
+bash -c 'pv -f -i 30 -N "%s" -ptebar /data/snapshot.tar.zst 2> >(tr "\r" "\n" >&2) | zstd -d -T0 | tar -xf - -C /data'
+rm -f /data/snapshot.tar.zst
+echo "[%s] Snapshot extraction complete"
+`, baseURL, network, clientName, baseURL, network, clientName, clientName, clientName, clientName, clientName, clientName, clientName)
+
+	// Create container config
+	config := &container.Config{
+		Image:      alpineImage,
+		Entrypoint: []string{"/bin/sh"},
+		Cmd:        []string{"-c", shellScript},
+		Tty:        false,
+	}
+
+	// Create host config with volume mount
+	hostConfig := &container.HostConfig{
+		Mounts: []mount.Mount{
+			{
+				Type:   mount.TypeBind,
+				Source: targetPath,
+				Target: "/data",
+			},
+		},
+		AutoRemove: true,
+	}
+
+	// Create the container
+	resp, err := d.cli.ContainerCreate(ctx, config, hostConfig, nil, nil, containerName)
+	if err != nil {
+		return fmt.Errorf("failed to create container: %w", err)
+	}
+
+	// Start the container
+	if err := d.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start container: %w", err)
+	}
+
+	// Attach to container output for real-time logging
+	attachResp, err := d.cli.ContainerAttach(ctx, resp.ID, container.AttachOptions{
+		Stream: true,
+		Stdout: true,
+		Stderr: true,
+	})
+	if err != nil {
+		logger.WarnWithPrefix(d.logPrefix, "Failed to attach to container: %v", err)
+	} else {
+		defer attachResp.Close()
+		// Copy output to stdout/stderr in a goroutine
+		go func() {
+			_, _ = stdcopy.StdCopy(os.Stdout, os.Stderr, attachResp.Reader)
+		}()
+	}
+
+	// Wait for container to finish
+	start := time.Now()
+	statusCh, errCh := d.cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return fmt.Errorf("error waiting for container: %w", err)
+		}
+	case status := <-statusCh:
+		if status.StatusCode != 0 {
+			return fmt.Errorf("container exited with status %d", status.StatusCode)
+		}
+	}
+
+	elapsed := time.Since(start)
+	logger.InfoWithPrefix(d.logPrefix, "RunSnapshotDownload: completed in %s", elapsed)
+	return nil
+}
+
+// ensureImage pulls an image if it's not already present locally
+func (d *DockerAdapter) ensureImage(ctx context.Context, imageName string) error {
+	// Check if image exists
+	_, err := d.cli.ImageInspect(ctx, imageName)
+	if err == nil {
+		return nil // Image already exists
+	}
+
+	logger.InfoWithPrefix(d.logPrefix, "Pulling image %s", imageName)
+	reader, err := d.cli.ImagePull(ctx, imageName, image.PullOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to pull image: %w", err)
+	}
+	defer reader.Close()
+
+	// Discard the output but wait for pull to complete
+	_, _ = io.Copy(io.Discard, reader)
+
+	logger.InfoWithPrefix(d.logPrefix, "Successfully pulled image %s", imageName)
 	return nil
 }
