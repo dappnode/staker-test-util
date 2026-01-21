@@ -9,10 +9,7 @@ import (
 	"clients-test/internal/adapters/apis/brain"
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/application/domain"
-	"clients-test/internal/logger"
 )
-
-var logPrefix = "Executor"
 
 type ExecutorAdapter struct {
 	Execution   *execution.ExecutionAdapter
@@ -36,13 +33,6 @@ func timeOperation(report *domain.TestReport, operationName string, fn func() er
 
 	success := err == nil
 	report.AddExecuteTiming(operationName, duration, success, err)
-
-	// Log the timing
-	if success {
-		logger.InfoWithPrefix(logPrefix, "%s completed in %s", operationName, duration.Round(time.Millisecond))
-	} else {
-		logger.ErrorWithPrefix(logPrefix, "%s failed after %s: %v", operationName, duration.Round(time.Millisecond), err)
-	}
 
 	return err
 }

@@ -3,7 +3,6 @@ package github
 import (
 	"bytes"
 	"clients-test/internal/application/domain"
-	"clients-test/internal/logger"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,10 +26,9 @@ type GitHubConfig struct {
 
 // GitHubAdapter handles interactions with the GitHub API
 type GitHubAdapter struct {
-	config    GitHubConfig
-	client    *http.Client
-	logPrefix string
-	baseURL   string
+	config  GitHubConfig
+	client  *http.Client
+	baseURL string
 }
 
 // NewGitHubAdapter creates a new GitHub adapter
@@ -42,10 +40,9 @@ func NewGitHubAdapter(config GitHubConfig) *GitHubAdapter {
 	}
 
 	return &GitHubAdapter{
-		config:    config,
-		client:    &http.Client{},
-		logPrefix: "GitHubAdapter",
-		baseURL:   baseURL,
+		config:  config,
+		client:  &http.Client{},
+		baseURL: baseURL,
 	}
 }
 
@@ -63,7 +60,6 @@ type IssueComment struct {
 // CommentOnPR creates or updates a comment on a pull request with the test report
 func (g *GitHubAdapter) CommentOnPR(ctx context.Context, report *domain.TestReport) error {
 	if !g.IsEnabled() {
-		logger.InfoWithPrefix(g.logPrefix, "GitHub integration not enabled (missing token, repo info, or PR number), skipping PR comment")
 		return nil
 	}
 
@@ -82,26 +78,17 @@ func (g *GitHubAdapter) CommentOnPR(ctx context.Context, report *domain.TestRepo
 	// Check for existing comment to update
 	existingCommentID, err := g.findExistingComment(ctx, signature)
 	if err != nil {
-		logger.WarnWithPrefix(g.logPrefix, "Failed to find existing comment, will create new: %v", err)
+		// Continue with creating new comment if we can't find existing
+		existingCommentID = 0
 	}
 
 	if existingCommentID > 0 {
 		// Update existing comment
-		err = g.updateComment(ctx, existingCommentID, markdown)
-		if err != nil {
-			return fmt.Errorf("failed to update PR comment: %w", err)
-		}
-		logger.InfoWithPrefix(g.logPrefix, "Updated existing comment on PR #%d", g.config.PRNumber)
-	} else {
-		// Create new comment
-		err = g.createComment(ctx, markdown)
-		if err != nil {
-			return fmt.Errorf("failed to create PR comment: %w", err)
-		}
-		logger.InfoWithPrefix(g.logPrefix, "Created new comment on PR #%d", g.config.PRNumber)
+		return g.updateComment(ctx, existingCommentID, markdown)
 	}
 
-	return nil
+	// Create new comment
+	return g.createComment(ctx, markdown)
 }
 
 // findExistingComment looks for an existing comment with our signature

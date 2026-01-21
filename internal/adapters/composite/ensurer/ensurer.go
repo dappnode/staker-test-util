@@ -13,10 +13,7 @@ import (
 	"clients-test/internal/adapters/apis/ipfs"
 	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/application/domain"
-	"clients-test/internal/logger"
 )
-
-var logPrefix = "Ensurer"
 
 type EnsurerAdapter struct {
 	DappManager *dappmanager.DappManagerAdapter
@@ -49,13 +46,6 @@ func timeOperation(report *domain.TestReport, operationName string, fn func() er
 	success := err == nil
 	report.AddEnsureTiming(operationName, duration, success, err)
 
-	// Log the timing
-	if success {
-		logger.InfoWithPrefix(logPrefix, "%s completed in %s", operationName, duration.Round(time.Millisecond))
-	} else {
-		logger.ErrorWithPrefix(logPrefix, "%s failed after %s: %v", operationName, duration.Round(time.Millisecond), err)
-	}
-
 	return err
 }
 
@@ -69,10 +59,8 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 
 	if isExecutionTest {
 		report.TestedClientType = "execution"
-		logger.InfoWithPrefix(logPrefix, "Testing execution client: %s", pkg.DnpName)
 	} else if isConsensusTest {
 		report.TestedClientType = "consensus"
-		logger.InfoWithPrefix(logPrefix, "Testing consensus client: %s", pkg.DnpName)
 	}
 
 	// SetStakerConfig
@@ -86,16 +74,10 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	if isExecutionTest {
 		if version, err := e.Execution.GetClientVersion(ctx); err == nil {
 			report.ExecutionClientVersionBefore = version
-			logger.InfoWithPrefix(logPrefix, "Execution client version before install: %s", version)
-		} else {
-			logger.DebugWithPrefix(logPrefix, "Could not get execution client version before install: %v", err)
 		}
 	} else if isConsensusTest {
 		if version, err := e.Beaconchain.GetClientVersion(ctx); err == nil {
 			report.ConsensusClientVersionBefore = version
-			logger.InfoWithPrefix(logPrefix, "Consensus client version before install: %s", version)
-		} else {
-			logger.DebugWithPrefix(logPrefix, "Could not get consensus client version before install: %v", err)
 		}
 	}
 
@@ -110,16 +92,10 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	if isExecutionTest {
 		if version, err := e.Execution.GetClientVersion(ctx); err == nil {
 			report.ExecutionClientVersionAfter = version
-			logger.InfoWithPrefix(logPrefix, "Execution client version after install: %s", version)
-		} else {
-			logger.DebugWithPrefix(logPrefix, "Could not get execution client version after install: %v", err)
 		}
 	} else if isConsensusTest {
 		if version, err := e.Beaconchain.GetClientVersion(ctx); err == nil {
 			report.ConsensusClientVersionAfter = version
-			logger.InfoWithPrefix(logPrefix, "Consensus client version after install: %s", version)
-		} else {
-			logger.DebugWithPrefix(logPrefix, "Could not get consensus client version after install: %v", err)
 		}
 	}
 

@@ -13,12 +13,9 @@ import (
 	"clients-test/internal/adapters/composite/ensurer"
 	"clients-test/internal/adapters/composite/executor"
 	"clients-test/internal/application/domain"
-	"clients-test/internal/logger"
 	"context"
 	"time"
 )
-
-var logPrefix = "Composite"
 
 type CompositeAdapter struct {
 	ensurer  *ensurer.EnsurerAdapter
@@ -74,14 +71,8 @@ func (t *CompositeAdapter) ExecuteTest(ctx context.Context, stakerConfig domain.
 	// Set the final result
 	t.report.SetResult(testErr == nil, testErr)
 
-	// Print console report
-	logger.Info("%s", t.report.ToConsoleString())
-
-	// Comment on PR if GitHub integration is enabled
-	if err := t.github.CommentOnPR(ctx, t.report); err != nil {
-		logger.ErrorWithPrefix(logPrefix, "Failed to comment on PR: %v", err)
-		// Don't fail the test because of PR comment failure
-	}
+	// Comment on PR if GitHub integration is enabled (ignore errors - don't fail test for PR comment issues)
+	_ = t.github.CommentOnPR(ctx, t.report)
 
 	return testErr
 }
@@ -102,16 +93,9 @@ func (t *CompositeAdapter) collectContainerErrorLogs(ctx context.Context, staker
 		stakerConfig.ExecutionContainerName,
 	}
 
-	logger.DebugWithPrefix(logPrefix, "Collecting error logs from containers: %v", containerNames)
-	logger.DebugWithPrefix(logPrefix, "Time range: %v to %v", since, until)
-
 	errorLogs := t.docker.CollectAllContainerErrorLogs(ctx, containerNames, since, until, maxLinesPerContainer)
 
 	for containerName, lines := range errorLogs {
 		t.report.AddContainerErrors(containerName, lines)
-		logger.WarnWithPrefix(logPrefix, "Found %d error lines in %s", len(lines), containerName)
-		for _, line := range lines {
-			logger.ErrorWithPrefix(logPrefix, "[%s] %s", containerName, line)
-		}
 	}
 }
