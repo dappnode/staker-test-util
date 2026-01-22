@@ -39,8 +39,15 @@ func (s *TestRunnerService) RunTest(ctx context.Context, stakerConfig domain.Sta
 		return fmt.Errorf("failed to set test in progress: %w", err)
 	}
 
-	// Ensure we clear the test in progress marker on completion (success or failure)
+	// Ensure we clean up and clear the test in progress marker on completion (success or failure)
 	defer func() {
+		logger.InfoWithPrefix(logPrefix, "Cleaning up environment...")
+		if cleanupErr := s.Runner.CleanEnvironment(ctx, stakerConfig); cleanupErr != nil {
+			logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", cleanupErr)
+		} else {
+			logger.InfoWithPrefix(logPrefix, "Cleanup completed successfully")
+		}
+
 		logger.InfoWithPrefix(logPrefix, "Clearing test in progress marker...")
 		if err := s.TestProgress.ClearTestInProgress(ctx); err != nil {
 			logger.ErrorWithPrefix(logPrefix, "Failed to clear test in progress: %v", err)
@@ -57,27 +64,11 @@ func (s *TestRunnerService) RunTest(ctx context.Context, stakerConfig domain.Sta
 
 	// 3) execute test (now includes report generation and PR commenting)
 	logger.InfoWithPrefix(logPrefix, "Step 3: Executing test")
-	execErr := s.Runner.ExecuteTest(ctx, stakerConfig)
-	if execErr != nil {
-		logger.ErrorWithPrefix(logPrefix, "Test execution failed: %v", execErr)
-		// even on test failure we want cleanup
-		logger.InfoWithPrefix(logPrefix, "Step 4: Running cleanup after test failure")
-		if cleanupErr := s.Runner.CleanEnvironment(ctx, stakerConfig); cleanupErr != nil {
-			logger.ErrorWithPrefix(logPrefix, "Cleanup also failed: %v", cleanupErr)
-			return fmt.Errorf("test failed: %v; cleanup also failed: %w", execErr, cleanupErr)
-		}
-		logger.InfoWithPrefix(logPrefix, "Cleanup completed successfully")
-		return fmt.Errorf("test failed: %w", execErr)
+	if err := s.Runner.ExecuteTest(ctx, stakerConfig); err != nil {
+		logger.ErrorWithPrefix(logPrefix, "Test execution failed: %v", err)
+		return fmt.Errorf("test failed: %w", err)
 	}
 	logger.InfoWithPrefix(logPrefix, "Test execution completed successfully")
-
-	// 4) cleanup
-	logger.InfoWithPrefix(logPrefix, "Step 4: Cleaning up environment")
-	if err := s.Runner.CleanEnvironment(ctx, stakerConfig); err != nil {
-		logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", err)
-		return fmt.Errorf("cleanup failed: %w", err)
-	}
-	logger.InfoWithPrefix(logPrefix, "Cleanup completed successfully")
 
 	logger.InfoWithPrefix(logPrefix, "Test run completed successfully")
 	return nil
