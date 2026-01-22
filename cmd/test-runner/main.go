@@ -12,6 +12,7 @@ import (
 	"clients-test/internal/adapters/composite"
 	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/adapters/shared/download"
+	"clients-test/internal/adapters/shared/testing"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
 	"clients-test/internal/config"
@@ -68,6 +69,7 @@ func main() {
 
 	// Initialize shared adapters
 	downloadAdapter := download.NewDownloadAdapter()
+	testAdapter := testing.NewTestAdapter()
 	blockAdapter := blocknumber.NewBlockNumberAdapter()
 
 	// Log GitHub configuration status
@@ -105,7 +107,7 @@ func main() {
 	}()
 
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(compositeAdapter, downloadAdapter)
+	testRunner := services.NewTestRunner(compositeAdapter, downloadAdapter, testAdapter)
 
 	if err := testRunner.RunTest(ctx, stakerConfig, pkg); err != nil {
 		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)

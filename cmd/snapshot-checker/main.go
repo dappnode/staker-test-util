@@ -6,6 +6,7 @@ import (
 	"clients-test/internal/adapters/composite/snapshotmanager"
 	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/adapters/shared/download"
+	"clients-test/internal/adapters/shared/testing"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
 	"clients-test/internal/config"
@@ -61,6 +62,9 @@ func main() {
 		blockNumberAdapter,
 	)
 
+	// Initialize test adapter for checking test in progress
+	testAdapter := testing.NewTestAdapter()
+
 	// If a previous run crashed/was interrupted, the marker file can be left behind and block future runs.
 	// Clear it on startup so the service can recover.
 	if inProgress, err := downloadAdapter.IsDownloadInProgress(ctx); err != nil {
@@ -76,6 +80,7 @@ func main() {
 	service := services.NewSnapshotCheckerService(
 		snapshotManagerAdapter,
 		downloadAdapter,
+		testAdapter,
 		snapshotConfig,
 	)
 

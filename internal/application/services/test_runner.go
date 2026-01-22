@@ -12,12 +12,13 @@ import (
 var logPrefix = "TestRunner"
 
 type TestRunnerService struct {
-	Runner   ports.TestRunner
-	Download ports.DownloadProgress
+	Runner           ports.TestRunner
+	DownloadProgress ports.DownloadProgress
+	TestProgress     ports.TestProgress
 }
 
-func NewTestRunner(runner ports.TestRunner, download ports.DownloadProgress) *TestRunnerService {
-	return &TestRunnerService{Runner: runner, Download: download}
+func NewTestRunner(runner ports.TestRunner, downloadProgress ports.DownloadProgress, testProgress ports.TestProgress) *TestRunnerService {
+	return &TestRunnerService{Runner: runner, DownloadProgress: downloadProgress, TestProgress: testProgress}
 }
 
 // RunTest wires up the three steps in sequence.
@@ -30,6 +31,21 @@ func (s *TestRunnerService) RunTest(ctx context.Context, stakerConfig domain.Sta
 		return fmt.Errorf("error while waiting for downloads to complete: %w", err)
 	}
 	logger.InfoWithPrefix(logPrefix, "No ongoing downloads detected, proceeding with test run")
+
+	// Set test in progress marker
+	logger.InfoWithPrefix(logPrefix, "Setting test in progress marker...")
+	if err := s.TestProgress.SetTestInProgress(ctx); err != nil {
+		logger.ErrorWithPrefix(logPrefix, "Failed to set test in progress: %v", err)
+		return fmt.Errorf("failed to set test in progress: %w", err)
+	}
+
+	// Ensure we clear the test in progress marker on completion (success or failure)
+	defer func() {
+		logger.InfoWithPrefix(logPrefix, "Clearing test in progress marker...")
+		if err := s.TestProgress.ClearTestInProgress(ctx); err != nil {
+			logger.ErrorWithPrefix(logPrefix, "Failed to clear test in progress: %v", err)
+		}
+	}()
 
 	// 2) ensure environment
 	logger.InfoWithPrefix(logPrefix, "Step 2: Ensuring environment for package %s", pkg.DnpName)
@@ -78,7 +94,7 @@ func (s *TestRunnerService) WaitForDownloadCompleteWithRetry(ctx context.Context
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			inProgress, err := s.Download.IsDownloadInProgress(ctx)
+			inProgress, err := s.DownloadProgress.IsDownloadInProgress(ctx)
 			if err != nil {
 				return fmt.Errorf("error checking download progress: %w", err)
 			}

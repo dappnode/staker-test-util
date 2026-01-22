@@ -14,21 +14,24 @@ var snapshotLogPrefix = "SnapshotChecker"
 
 // SnapshotCheckerService handles snapshot checking and downloading
 type SnapshotCheckerService struct {
-	snapshotManager ports.SnapshotManager
-	progress        ports.DownloadProgress
-	config          domain.SnapshotCheckerConfig
+	snapshotManager  ports.SnapshotManager
+	downloadProgress ports.DownloadProgress
+	testProgress     ports.TestProgress
+	config           domain.SnapshotCheckerConfig
 }
 
 // NewSnapshotCheckerService creates a new SnapshotCheckerService
 func NewSnapshotCheckerService(
 	snapshotManager ports.SnapshotManager,
-	progress ports.DownloadProgress,
+	downloadProgress ports.DownloadProgress,
+	testProgress ports.TestProgress,
 	config domain.SnapshotCheckerConfig,
 ) *SnapshotCheckerService {
 	return &SnapshotCheckerService{
-		snapshotManager: snapshotManager,
-		progress:        progress,
-		config:          config,
+		snapshotManager:  snapshotManager,
+		downloadProgress: downloadProgress,
+		testProgress:     testProgress,
+		config:           config,
 	}
 }
 
@@ -80,9 +83,16 @@ func (s *SnapshotCheckerService) Start(ctx context.Context, runOnce bool) error 
 func (s *SnapshotCheckerService) CheckAndUpdateSnapshots(ctx context.Context) error {
 	logger.InfoWithPrefix(snapshotLogPrefix, "Checking snapshots for %d clients", len(s.config.ExecutionClients))
 
+	// Wait for any ongoing tests to complete before proceeding
+	logger.InfoWithPrefix(snapshotLogPrefix, "Checking if test is in progress...")
+	if err := s.WaitForTestCompleteWithRetry(ctx); err != nil {
+		return fmt.Errorf("error while waiting for test to complete: %w", err)
+	}
+	logger.InfoWithPrefix(snapshotLogPrefix, "No ongoing tests detected, proceeding with snapshot check")
+
 	// Check if a download is already in progress
 	logger.InfoWithPrefix(snapshotLogPrefix, "Checking if download is already in progress...")
-	inProgress, err := s.progress.IsDownloadInProgress(ctx)
+	inProgress, err := s.downloadProgress.IsDownloadInProgress(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check download progress: %w", err)
 	}
@@ -93,14 +103,14 @@ func (s *SnapshotCheckerService) CheckAndUpdateSnapshots(ctx context.Context) er
 
 	// Set download in progress for this cycle
 	logger.InfoWithPrefix(snapshotLogPrefix, "Setting download in progress marker...")
-	if err := s.progress.SetDownloadInProgress(ctx); err != nil {
+	if err := s.downloadProgress.SetDownloadInProgress(ctx); err != nil {
 		return fmt.Errorf("failed to set download in progress: %w", err)
 	}
 
 	// Ensure we clear the progress file on completion (success or failure)
 	defer func() {
 		logger.InfoWithPrefix(snapshotLogPrefix, "Clearing download in progress marker...")
-		if err := s.progress.ClearDownloadInProgress(ctx); err != nil {
+		if err := s.downloadProgress.ClearDownloadInProgress(ctx); err != nil {
 			logger.ErrorWithPrefix(snapshotLogPrefix, "Failed to clear download in progress: %v", err)
 		}
 	}()
@@ -186,4 +196,30 @@ func (s *SnapshotCheckerService) StopAllDownloads(ctx context.Context) {
 	logger.InfoWithPrefix(snapshotLogPrefix, "Stopping all snapshot download containers...")
 	s.snapshotManager.StopAllDownloads(ctx)
 	logger.InfoWithPrefix(snapshotLogPrefix, "All download containers stopped")
+}
+
+// WaitForTestCompleteWithRetry waits until no test is in progress
+// using a fixed 30 second retry interval. This is useful for the snapshot checker
+// to wait for tests to complete before proceeding with downloads.
+func (s *SnapshotCheckerService) WaitForTestCompleteWithRetry(ctx context.Context) error {
+	const retryInterval = 30 * time.Second
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			inProgress, err := s.testProgress.IsTestInProgress(ctx)
+			if err != nil {
+				return fmt.Errorf("error checking test progress: %w", err)
+			}
+
+			if !inProgress {
+				return nil
+			}
+
+			logger.InfoWithPrefix(snapshotLogPrefix, "Test in progress, waiting %s before retry...", retryInterval)
+			time.Sleep(retryInterval)
+		}
+	}
 }

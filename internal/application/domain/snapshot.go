@@ -29,6 +29,9 @@ const SnapshotProgressPath = "/usr/src/dappnode/DNCORE"
 // ProgressFileName is the name of the download in progress file
 const ProgressFileName = ".download_in_progress"
 
+// TestProgressFileName is the name of the test in progress file
+const TestProgressFileName = ".test_in_progress"
+
 // SnapshotBlockNumberFileName returns the snapshot block number file name
 const SnapshotBlockNumberFileName = "snapshot_block_number"
 
