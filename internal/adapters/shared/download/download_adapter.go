@@ -1,4 +1,4 @@
-package progress
+package download
 
 import (
 	"clients-test/internal/application/domain"
@@ -9,32 +9,32 @@ import (
 	"time"
 )
 
-// ProgressAdapter handles the .download_in_progress file operations
-type ProgressAdapter struct {
+// DownloadAdapter handles the .download_in_progress file operations
+type DownloadAdapter struct {
 	basePath string
 }
 
-// NewProgressAdapter creates a new ProgressAdapter
-func NewProgressAdapter() *ProgressAdapter {
-	return &ProgressAdapter{
+// NewDownloadAdapter creates a new ProgressAdapter
+func NewDownloadAdapter() *DownloadAdapter {
+	return &DownloadAdapter{
 		basePath: domain.SnapshotProgressPath,
 	}
 }
 
-// NewProgressAdapterWithPath creates a new ProgressAdapter with a custom base path (for testing)
-func NewProgressAdapterWithPath(basePath string) *ProgressAdapter {
-	return &ProgressAdapter{
+// NewDownloadAdapterWithPath creates a new DownloadAdapter with a custom base path (for testing)
+func NewDownloadAdapterWithPath(basePath string) *DownloadAdapter {
+	return &DownloadAdapter{
 		basePath: basePath,
 	}
 }
 
 // progressFilePath returns the full path to the progress file
-func (p *ProgressAdapter) progressFilePath() string {
+func (p *DownloadAdapter) progressFilePath() string {
 	return filepath.Join(p.basePath, domain.ProgressFileName)
 }
 
 // SetDownloadInProgress creates the .download_in_progress file
-func (p *ProgressAdapter) SetDownloadInProgress(ctx context.Context) error {
+func (p *DownloadAdapter) SetDownloadInProgress(ctx context.Context) error {
 	filePath := p.progressFilePath()
 
 	if err := os.MkdirAll(p.basePath, 0755); err != nil {
@@ -56,7 +56,7 @@ func (p *ProgressAdapter) SetDownloadInProgress(ctx context.Context) error {
 }
 
 // ClearDownloadInProgress removes the .download_in_progress file
-func (p *ProgressAdapter) ClearDownloadInProgress(ctx context.Context) error {
+func (p *DownloadAdapter) ClearDownloadInProgress(ctx context.Context) error {
 	filePath := p.progressFilePath()
 
 	err := os.Remove(filePath)
@@ -68,7 +68,7 @@ func (p *ProgressAdapter) ClearDownloadInProgress(ctx context.Context) error {
 }
 
 // IsDownloadInProgress checks if download is in progress
-func (p *ProgressAdapter) IsDownloadInProgress(ctx context.Context) (bool, error) {
+func (p *DownloadAdapter) IsDownloadInProgress(ctx context.Context) (bool, error) {
 	filePath := p.progressFilePath()
 	_, err := os.Stat(filePath)
 	if err != nil {
@@ -82,7 +82,7 @@ func (p *ProgressAdapter) IsDownloadInProgress(ctx context.Context) (bool, error
 
 // WaitForDownloadComplete waits until no download is in progress
 // Returns an error if the context is cancelled or times out
-func (p *ProgressAdapter) WaitForDownloadComplete(ctx context.Context, checkInterval time.Duration) error {
+func (p *DownloadAdapter) WaitForDownloadComplete(ctx context.Context, checkInterval time.Duration) error {
 	for {
 		select {
 		case <-ctx.Done():

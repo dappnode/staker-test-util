@@ -5,7 +5,7 @@ import (
 	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/adapters/composite/snapshotmanager"
 	"clients-test/internal/adapters/shared/blocknumber"
-	"clients-test/internal/adapters/shared/progress"
+	"clients-test/internal/adapters/shared/download"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
 	"clients-test/internal/config"
@@ -51,7 +51,7 @@ func main() {
 	if err != nil {
 		logger.FatalWithPrefix(logPrefix, "Failed to init DockerAdapter: %v", err)
 	}
-	progressAdapter := progress.NewProgressAdapter()
+	downloadAdapter := download.NewDownloadAdapter()
 	blockNumberAdapter := blocknumber.NewBlockNumberAdapter()
 
 	// Create composite snapshot manager adapter
@@ -63,11 +63,11 @@ func main() {
 
 	// If a previous run crashed/was interrupted, the marker file can be left behind and block future runs.
 	// Clear it on startup so the service can recover.
-	if inProgress, err := progressAdapter.IsDownloadInProgress(ctx); err != nil {
+	if inProgress, err := downloadAdapter.IsDownloadInProgress(ctx); err != nil {
 		logger.WarnWithPrefix(logPrefix, "Failed to check %s marker: %v", domain.ProgressFileName, err)
 	} else if inProgress {
 		logger.WarnWithPrefix(logPrefix, "Found stale %s marker; clearing it on startup", domain.ProgressFileName)
-		if err := progressAdapter.ClearDownloadInProgress(context.Background()); err != nil {
+		if err := downloadAdapter.ClearDownloadInProgress(context.Background()); err != nil {
 			logger.WarnWithPrefix(logPrefix, "Failed to clear %s marker on startup: %v", domain.ProgressFileName, err)
 		}
 	}
@@ -75,7 +75,7 @@ func main() {
 	// Initialize the snapshot checker service
 	service := services.NewSnapshotCheckerService(
 		snapshotManagerAdapter,
-		progressAdapter,
+		downloadAdapter,
 		snapshotConfig,
 	)
 
@@ -85,7 +85,7 @@ func main() {
 		// Stop any running download containers using the service method
 		service.StopAllDownloads(context.Background())
 		// Best-effort cleanup: clear marker file so next run isn't blocked.
-		if err := progressAdapter.ClearDownloadInProgress(context.Background()); err != nil {
+		if err := downloadAdapter.ClearDownloadInProgress(context.Background()); err != nil {
 			logger.WarnWithPrefix(logPrefix, "Failed to clear %s marker on shutdown: %v", domain.ProgressFileName, err)
 		}
 		cancel()
