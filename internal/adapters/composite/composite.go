@@ -12,6 +12,7 @@ import (
 	"clients-test/internal/adapters/composite/cleaner"
 	"clients-test/internal/adapters/composite/ensurer"
 	"clients-test/internal/adapters/composite/executor"
+	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/application/domain"
 	"context"
 	"time"
@@ -35,8 +36,9 @@ func NewCompositeAdapter(
 	executionAdapter *execution.ExecutionAdapter,
 	ipfsAdapter *ipfs.IPFSAdapter,
 	githubAdapter *github.GitHubAdapter,
+	blockNumberAdapter *blocknumber.BlockNumberAdapter,
 ) *CompositeAdapter {
-	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, snapshotsAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter)
+	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, snapshotsAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter, blockNumberAdapter)
 	executor := executor.NewExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
 	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, brainAdapter, beaconchainAdapter, dockerAdapter)
 	return &CompositeAdapter{

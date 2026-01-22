@@ -6,16 +6,18 @@ import (
 	"clients-test/internal/logger"
 	"context"
 	"fmt"
+	"time"
 )
 
 var logPrefix = "TestRunner"
 
 type TestRunnerService struct {
-	Runner ports.TestRunner
+	Runner   ports.TestRunner
+	Download ports.DownloadProgress
 }
 
-func NewTestRunner(runner ports.TestRunner) *TestRunnerService {
-	return &TestRunnerService{runner}
+func NewTestRunner(runner ports.TestRunner, download ports.DownloadProgress) *TestRunnerService {
+	return &TestRunnerService{Runner: runner, Download: download}
 }
 
 // RunTest wires up the three steps in sequence.
@@ -55,4 +57,29 @@ func (s *TestRunnerService) RunTest(ctx context.Context, stakerConfig domain.Sta
 
 	logger.InfoWithPrefix(logPrefix, "Test run completed successfully")
 	return nil
+}
+
+// WaitForDownloadCompleteWithRetry waits until no download is in progress
+// using a fixed 30 second retry interval. This is useful for the test runner
+// to wait for snapshot downloads to complete before proceeding.
+func (s *TestRunnerService) WaitForDownloadCompleteWithRetry(ctx context.Context) error {
+	const retryInterval = 30 * time.Second
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			inProgress, err := s.Download.IsDownloadInProgress(ctx)
+			if err != nil {
+				return fmt.Errorf("error checking download progress: %w", err)
+			}
+
+			if !inProgress {
+				return nil
+			}
+
+			time.Sleep(retryInterval)
+		}
+	}
 }

@@ -3,6 +3,7 @@ package ensurer
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"clients-test/internal/adapters/apis/beaconchain"
@@ -12,6 +13,7 @@ import (
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/ipfs"
 	"clients-test/internal/adapters/apis/snapshots"
+	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/application/domain"
 )
 
@@ -23,9 +25,10 @@ type EnsurerAdapter struct {
 	Beaconchain *beaconchain.BeaconchainAdapter
 	Execution   *execution.ExecutionAdapter
 	Ipfs        *ipfs.IPFSAdapter
+	BlockNumber *blocknumber.BlockNumberAdapter
 }
 
-func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, docker *docker.DockerAdapter, snapshotsAdapter *snapshots.SnapshotsAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter) *EnsurerAdapter {
+func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, docker *docker.DockerAdapter, snapshotsAdapter *snapshots.SnapshotsAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter, blockNumberAdapter *blocknumber.BlockNumberAdapter) *EnsurerAdapter {
 	return &EnsurerAdapter{
 		DappManager: dappManager,
 		Brain:       brain,
@@ -34,6 +37,7 @@ func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain
 		Beaconchain: beaconchain,
 		Execution:   execution,
 		Ipfs:        ipfs,
+		BlockNumber: blockNumberAdapter,
 	}
 }
 
@@ -62,6 +66,9 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	} else if isConsensusTest {
 		report.TestedClientType = "consensus"
 	}
+
+	// Read snapshot block number
+	e.readSnapshotBlockNumber(ctx, stakerConfig, report)
 
 	// SetStakerConfig
 	if err := timeOperation(report, "SetStakerConfig", func() error {
@@ -100,4 +107,22 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	}
 
 	return nil
+}
+
+// readSnapshotBlockNumber reads the snapshot block number from the execution client's volume
+// and stores it in the report. Errors are silently ignored as this is informational.
+func (e *EnsurerAdapter) readSnapshotBlockNumber(ctx context.Context, stakerConfig domain.StakerConfig, report *domain.TestReport) {
+	// Get execution client info to find the volume path
+	execClients := domain.GetExecutionClients(stakerConfig.Network, nil)
+	for _, client := range execClients {
+		if client.DnpName == stakerConfig.ExecutionDnpName {
+			blockNumberStr, err := e.BlockNumber.ReadBlockNumber(ctx, client.VolumeTargetPath)
+			if err == nil && blockNumberStr != "" {
+				if blockNumber, parseErr := strconv.ParseUint(blockNumberStr, 10, 64); parseErr == nil {
+					report.SnapshotBlockNumber = blockNumber
+				}
+			}
+			break
+		}
+	}
 }

@@ -36,6 +36,9 @@ type TestReport struct {
 	ConsensusClientVersionAfter  string `json:"consensusClientVersionAfter,omitempty"`
 	SnapshotClientVersion        string `json:"snapshotClientVersion,omitempty"`
 
+	// blocknumber of the snapshot used
+	SnapshotBlockNumber uint64 `json:"snapshotBlockNumber,omitempty"`
+
 	// What type of client is being tested
 	TestedClientType string `json:"testedClientType,omitempty"` // "execution" or "consensus"
 
@@ -163,6 +166,9 @@ func (r *TestReport) ToMarkdown() string {
 			if r.SnapshotClientVersion != "" {
 				sb.WriteString(fmt.Sprintf("| Snapshot | `%s` |\n", r.SnapshotClientVersion))
 			}
+			if r.SnapshotBlockNumber > 0 {
+				sb.WriteString(fmt.Sprintf("| Snapshot Block | `%d` |\n", r.SnapshotBlockNumber))
+			}
 		} else if r.TestedClientType == "consensus" {
 			sb.WriteString("**Tested Client:** Consensus\n\n")
 			sb.WriteString("| Stage | Version |\n")
@@ -274,6 +280,9 @@ func (r *TestReport) ToConsoleString() string {
 			}
 			if r.SnapshotClientVersion != "" {
 				sb.WriteString(fmt.Sprintf("  Snapshot Version:   %s\n", r.SnapshotClientVersion))
+			}
+			if r.SnapshotBlockNumber > 0 {
+				sb.WriteString(fmt.Sprintf("  Snapshot Block:     %d\n", r.SnapshotBlockNumber))
 			}
 		} else if r.TestedClientType == "consensus" {
 			if r.ConsensusClientVersionBefore != "" {

@@ -10,6 +10,8 @@ import (
 	"clients-test/internal/adapters/apis/ipfs"
 	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/adapters/composite"
+	"clients-test/internal/adapters/shared/blocknumber"
+	"clients-test/internal/adapters/shared/progress"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
 	"clients-test/internal/config"
@@ -64,6 +66,10 @@ func main() {
 	// Initialize GitHub adapter for PR commenting
 	githubAdapter := github.NewGitHubAdapter(cfg.GitHub)
 
+	// Initialize shared adapters
+	progressAdapter := progress.NewProgressAdapter()
+	blockAdapter := blocknumber.NewBlockNumberAdapter()
+
 	// Log GitHub configuration status
 	if githubAdapter.IsEnabled() {
 		logger.InfoWithPrefix(logPrefix, "GitHub integration enabled - will comment on PR #%d", cfg.GitHub.PRNumber)
@@ -81,6 +87,7 @@ func main() {
 		executionAdapter,
 		ipfsAdapter,
 		githubAdapter,
+		blockAdapter,
 	)
 
 	// Ctrl+C handler: call CleanEnvironment on composite
@@ -98,7 +105,7 @@ func main() {
 	}()
 
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(compositeAdapter)
+	testRunner := services.NewTestRunner(compositeAdapter, progressAdapter)
 
 	if err := testRunner.RunTest(ctx, stakerConfig, pkg); err != nil {
 		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
