@@ -33,12 +33,12 @@ func main() {
 	cfg := config.ParseConfig()
 	cfg.Validate()
 
-	// Set up Ctrl+C (SIGINT) handler to call composite cleaner
-	cleanupDone := make(chan struct{})
+	// Set up Ctrl+C (SIGINT) handler
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	ctx := context.Background()
 
 	// Fetch dnpName from ipfs hash
 	ipfsAdapter := ipfs.NewIPFSAdapter(&cfg.IPFSGatewayURL)
@@ -95,15 +95,16 @@ func main() {
 	// Ctrl+C handler: call CleanEnvironment on composite
 	go func() {
 		sig := <-sigs
-		logger.InfoWithPrefix(logPrefix, "Received signal: %v, running cleanup...", sig)
-		err := compositeAdapter.CleanEnvironment(ctx, stakerConfig)
+		logger.InfoWithPrefix(logPrefix, "Received signal: %v, shutting down...", sig)
+		err := compositeAdapter.CleanEnvironment(context.Background(), stakerConfig)
 		if err != nil {
 			logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", err)
-		} else {
-			logger.InfoWithPrefix(logPrefix, "Cleanup completed successfully")
 		}
-		close(cleanupDone)
-		os.Exit(1)
+		// Best-effort cleanup, clear marker file `.test_in_progress` so next run isn't blocked.
+		if err := testAdapter.ClearTestInProgress(context.Background()); err != nil {
+			logger.WarnWithPrefix(logPrefix, "Failed to clear %s marker on shutdown: %v", domain.TestProgressFileName, err)
+		}
+		cancel()
 	}()
 
 	// Initialize and run the service
