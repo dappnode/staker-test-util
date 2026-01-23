@@ -3,7 +3,6 @@ package snapshotmanager
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/snapshots"
@@ -53,25 +52,8 @@ func (s *SnapshotManagerAdapter) GetLatestBlockNumber(ctx context.Context, netwo
 	return s.snapshots.GetLatestBlockNumber(ctx, network, client)
 }
 
-// StopAllDownloads stops all running snapshot download containers in parallel
-func (s *SnapshotManagerAdapter) StopAllDownloads(ctx context.Context) {
-	containerIDs, err := s.docker.ListContainersByPrefix(ctx, downloadContainerPrefix)
-	if err != nil {
-		return
-	}
-
-	if len(containerIDs) == 0 {
-		return
-	}
-
-	// Stop all containers in parallel
-	var wg sync.WaitGroup
-	for _, id := range containerIDs {
-		wg.Add(1)
-		go func(containerID string) {
-			defer wg.Done()
-			_ = s.docker.StopContainerWithTimeout(ctx, containerID, 5)
-		}(id)
-	}
-	wg.Wait()
+// StopDownload stops the snapshot download container for a specific client
+func (s *SnapshotManagerAdapter) StopDownload(ctx context.Context, clientShortName string) {
+	containerName := fmt.Sprintf("%s%s", downloadContainerPrefix, clientShortName)
+	_ = s.docker.StopContainerWithTimeout(ctx, containerName, 5)
 }

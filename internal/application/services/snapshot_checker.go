@@ -205,11 +205,12 @@ func (s *SnapshotCheckerService) checkNeedsSnapshotDownload(ctx context.Context,
 	return isNewer, nil
 }
 
-// StopAllDownloads stops all running download containers (for graceful shutdown)
-func (s *SnapshotCheckerService) StopAllDownloads(ctx context.Context) {
-	logger.InfoWithPrefix(snapshotLogPrefix, "Stopping all snapshot download containers...")
-	s.snapshotManager.StopAllDownloads(ctx)
-	logger.InfoWithPrefix(snapshotLogPrefix, "All download containers stopped")
+// StopDownload stops the current download container (for graceful shutdown)
+func (s *SnapshotCheckerService) StopDownload(ctx context.Context) {
+	clientName := s.config.ExecutionClient.ShortName
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Stopping snapshot download container...", clientName)
+	s.snapshotManager.StopDownload(ctx, clientName)
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Download container stopped", clientName)
 }
 
 // ClearDownloadMarker clears the download in progress marker

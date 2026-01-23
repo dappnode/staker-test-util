@@ -14,6 +14,6 @@ type SnapshotManager interface {
 	// GetLatestBlockNumber fetches the latest available block number for a client
 	GetLatestBlockNumber(ctx context.Context, network, client string) (string, error)
 
-	// StopAllDownloads stops all running snapshot download containers
-	StopAllDownloads(ctx context.Context)
+	// StopDownload stops the snapshot download container for a specific client
+	StopDownload(ctx context.Context, clientShortName string)
 }
