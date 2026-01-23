@@ -27,7 +27,7 @@ import (
 var logPrefix = "TEST_RUNNER"
 
 func main() {
-	logger.InfoWithPrefix(logPrefix, "Starting Notifications service")
+	logger.InfoWithPrefix(logPrefix, "Starting Test Runner service")
 
 	// Parse and validate configuration
 	cfg := config.ParseConfig()
