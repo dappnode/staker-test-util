@@ -18,10 +18,6 @@ on:
         description: 'Execution client (geth, reth, nethermind, besu, erigon)'
         required: true
         default: 'geth'
-      run_once:
-        description: 'Run once and exit'
-        required: false
-        default: 'true'
 
 jobs:
   # Option 1: Run as Docker container
@@ -36,7 +32,6 @@ jobs:
             -e LOG_LEVEL=INFO \
             -e EXECUTION_CLIENT=${{ github.event.inputs.execution_client || 'geth' }} \
             -e NETWORK=hoodi \
-            -e RUN_ONCE=${{ github.event.inputs.run_once || 'true' }} \
             ghcr.io/dappnode/staker-test-util/snapshot-checker:latest
 
   # Option 2: Run as binary (alternative approach)
@@ -55,4 +50,3 @@ jobs:
   #       run: |
   #         ./snapshot-checker \
   #           --execution-client=${{ github.event.inputs.execution_client || 'geth' }} \
-  #           --run-once
