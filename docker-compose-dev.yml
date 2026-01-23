@@ -12,7 +12,7 @@ services:
       - EXECUTION_CLIENT=${EXECUTION_CLIENT:-geth}
       - NETWORK=${NETWORK:-hoodi}
       - CRON_INTERVAL_SEC=${CRON_INTERVAL_SEC:-21600}
-      - RUN_ONCE=${RUN_ONCE:-false}
+      - RUN_ONCE=${RUN_ONCE:-true}
     networks:
       - dncore_network
 

@@ -49,7 +49,7 @@ func (s *SnapshotCheckerService) Start(ctx context.Context, runOnce bool) error 
 
 	// Run immediately on startup
 	logger.InfoWithPrefix(snapshotLogPrefix, "Running initial snapshot check...")
-	if err := s.CheckAndUpdateSnapshots(ctx); err != nil {
+	if err := s.checkAndUpdateSnapshot(ctx); err != nil {
 		logger.ErrorWithPrefix(snapshotLogPrefix, "Initial snapshot check failed: %v", err)
 		return err
 	}
@@ -73,7 +73,7 @@ func (s *SnapshotCheckerService) Start(ctx context.Context, runOnce bool) error 
 			return ctx.Err()
 		case <-ticker.C:
 			logger.InfoWithPrefix(snapshotLogPrefix, "Running scheduled snapshot check...")
-			if err := s.CheckAndUpdateSnapshots(ctx); err != nil {
+			if err := s.checkAndUpdateSnapshot(ctx); err != nil {
 				logger.ErrorWithPrefix(snapshotLogPrefix, "Scheduled snapshot check failed: %v", err)
 				// Continue running even on failure
 			}
@@ -81,21 +81,9 @@ func (s *SnapshotCheckerService) Start(ctx context.Context, runOnce bool) error 
 	}
 }
 
-// CheckAndUpdateSnapshots checks the configured client and updates snapshot if needed
-func (s *SnapshotCheckerService) CheckAndUpdateSnapshots(ctx context.Context) error {
+// checkAndUpdateSnapshot checks the configured client and updates snapshot if needed
+func (s *SnapshotCheckerService) checkAndUpdateSnapshot(ctx context.Context) error {
 	client := s.config.ExecutionClient
-	logger.InfoWithPrefix(snapshotLogPrefix, "Checking snapshot for client: %s", client.ShortName)
-
-	if err := s.checkAndUpdateClient(ctx, client); err != nil {
-		return fmt.Errorf("client %s: %w", client.ShortName, err)
-	}
-
-	logger.InfoWithPrefix(snapshotLogPrefix, "Snapshot check completed successfully")
-	return nil
-}
-
-// checkAndUpdateClient checks a single client and updates snapshot if needed
-func (s *SnapshotCheckerService) checkAndUpdateClient(ctx context.Context, client domain.ExecutionClientInfo) error {
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Checking client (%s)", client.ShortName, client.DnpName)
 
 	// Wait for any ongoing tests to complete before proceeding with this client
@@ -173,6 +161,7 @@ func (s *SnapshotCheckerService) checkAndUpdateClient(ctx context.Context, clien
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] ✓ Snapshot download completed successfully", client.ShortName)
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Total time: %s", client.ShortName, elapsed.Round(time.Second))
 
+	logger.InfoWithPrefix(snapshotLogPrefix, "Snapshot check completed successfully")
 	return nil
 }
 
