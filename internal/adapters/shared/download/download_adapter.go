@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -47,6 +48,12 @@ func (p *DownloadAdapter) SetDownloadInProgress(ctx context.Context) error {
 	}
 	defer f.Close()
 
+	// Acquire exclusive lock for writing
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("failed to acquire lock on progress file: %w", err)
+	}
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+
 	_, err = f.WriteString(time.Now().UTC().Format(time.RFC3339))
 	if err != nil {
 		return fmt.Errorf("failed to write to progress file: %w", err)
@@ -70,13 +77,22 @@ func (p *DownloadAdapter) ClearDownloadInProgress(ctx context.Context) error {
 // IsDownloadInProgress checks if download is in progress
 func (p *DownloadAdapter) IsDownloadInProgress(ctx context.Context) (bool, error) {
 	filePath := p.progressFilePath()
-	_, err := os.Stat(filePath)
+
+	f, err := os.Open(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to check progress file: %w", err)
+		return false, fmt.Errorf("failed to open progress file: %w", err)
 	}
+	defer f.Close()
+
+	// Acquire shared lock for reading
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_SH); err != nil {
+		return false, fmt.Errorf("failed to acquire lock on progress file: %w", err)
+	}
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+
 	return true, nil
 }
 

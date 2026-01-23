@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 // BlockNumberAdapter handles the snapshot_block_number file operations
@@ -49,6 +50,12 @@ func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, blockNumber s
 	}
 	defer f.Close()
 
+	// Acquire exclusive lock for writing
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("failed to acquire lock on block number file: %w", err)
+	}
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+
 	_, err = f.WriteString(blockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to write to block number file: %w", err)
@@ -62,11 +69,23 @@ func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, blockNumber s
 func (b *BlockNumberAdapter) ReadBlockNumber(ctx context.Context) (string, error) {
 	filePath := b.blockNumberFilePath()
 
-	data, err := os.ReadFile(filePath)
+	f, err := os.Open(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
 		}
+		return "", fmt.Errorf("failed to open block number file: %w", err)
+	}
+	defer f.Close()
+
+	// Acquire shared lock for reading
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_SH); err != nil {
+		return "", fmt.Errorf("failed to acquire lock on block number file: %w", err)
+	}
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
 		return "", fmt.Errorf("failed to read block number file: %w", err)
 	}
 
@@ -77,13 +96,22 @@ func (b *BlockNumberAdapter) ReadBlockNumber(ctx context.Context) (string, error
 // BlockNumberExists checks if a block number file exists
 func (b *BlockNumberAdapter) BlockNumberExists(ctx context.Context) (bool, error) {
 	filePath := b.blockNumberFilePath()
-	_, err := os.Stat(filePath)
+
+	f, err := os.Open(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to check block number file: %w", err)
+		return false, fmt.Errorf("failed to open block number file: %w", err)
 	}
+	defer f.Close()
+
+	// Acquire shared lock for reading
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_SH); err != nil {
+		return false, fmt.Errorf("failed to acquire lock on block number file: %w", err)
+	}
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+
 	return true, nil
 }
 
