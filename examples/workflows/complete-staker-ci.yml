@@ -49,7 +49,6 @@ jobs:
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v /var/lib/docker/volumes:/var/lib/docker/volumes \
-            -e LOG_LEVEL=INFO \
             -e EXECUTION_CLIENT=geth \
             -e NETWORK=hoodi \
             -e RUN_ONCE=true \
@@ -65,7 +64,6 @@ jobs:
             --network dncore_network \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v /var/lib/docker/volumes:/var/lib/docker/volumes \
-            -e LOG_LEVEL=DEBUG \
             -e IPFS_GATEWAY_URL=http://ipfs.dappnode:8080 \
             -e IPFS_HASH=${{ needs.build.outputs.ipfs_hash }} \
             -e EXECUTION_CLIENT=geth \
