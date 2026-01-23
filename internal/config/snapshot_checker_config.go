@@ -27,7 +27,7 @@ func ParseSnapshotCheckerConfig() SnapshotCheckerAppConfig {
 	executionClient := flag.String("execution-client", "", "Execution client name (geth, nethermind, reth, besu, erigon). Required.")
 	network := flag.String("network", "hoodi", "Network name (e.g., hoodi). Default: hoodi")
 	cronIntervalSec := flag.Int("cron-interval", 0, "Interval between snapshot checks in seconds. Default: 21600 (6 hours)")
-	runOnce := flag.Bool("run-once", false, "Run once and exit (for testing). Default: false")
+	runOnce := flag.Bool("run-once", true, "Run once and exit (for testing). Default: false")
 
 	flag.Parse()
 
