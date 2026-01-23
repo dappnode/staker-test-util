@@ -1,11 +1,29 @@
 services:
-  staker-test-util:
+  snapshot-checker:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: staker-test-util
+      dockerfile: Dockerfile.snapshot-checker
+    container_name: snapshot-checker
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    environment:
+      - LOG_LEVEL=DEBUG
+      - EXECUTION_CLIENT=${EXECUTION_CLIENT:-geth}
+      - NETWORK=${NETWORK:-hoodi}
+      - CRON_INTERVAL_SEC=${CRON_INTERVAL_SEC:-21600}
+      - RUN_ONCE=${RUN_ONCE:-false}
+    networks:
+      - dncore_network
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test-runner
+    container_name: test-runner
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
     environment:
       - LOG_LEVEL=DEBUG
       - IPFS_GATEWAY_URL=http://ipfs.dappnode:8080

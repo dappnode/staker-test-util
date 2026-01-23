@@ -13,8 +13,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/staker-test-util ./cmd/main.go
+# Build the snapshot-checker application
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/snapshot-checker ./cmd/snapshot-checker
 
 # Final stage
 FROM alpine:latest
@@ -25,6 +25,6 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates docker-cli
 
 # Copy binary from builder
-COPY --from=builder /app/staker-test-util /app/staker-test-util
+COPY --from=builder /app/snapshot-checker /app/snapshot-checker
 
-ENTRYPOINT ["/app/staker-test-util"]
+ENTRYPOINT ["/app/snapshot-checker"]
