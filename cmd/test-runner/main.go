@@ -47,8 +47,17 @@ func main() {
 		logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
 	}
 
-	// Retrieve staker config based on pkg (dnpName and serviceName)
-	stakerConfig := domain.StakerConfigForNetwork(pkg)
+	// Retrieve staker config based on pkg (dnpName and serviceName) with optional overrides
+	overrides := domain.ClientOverrides{
+		ExecutionClient: cfg.ExecutionClient,
+		ConsensusClient: cfg.ConsensusClient,
+	}
+	stakerConfig, warnings := domain.StakerConfigForNetwork(pkg, overrides)
+
+	// Log any warnings from client resolution
+	for _, warning := range warnings {
+		logger.WarnWithPrefix(logPrefix, "%s", warning)
+	}
 
 	// print the staker config for debugging with each item on a new line
 	printStakerConfig(logPrefix, stakerConfig)

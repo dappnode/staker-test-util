@@ -11,9 +11,11 @@ var logPrefix = "Config"
 
 // Config holds all application configuration
 type Config struct {
-	IPFSGatewayURL string
-	IPFSHash       string
-	GitHub         github.GitHubConfig
+	IPFSGatewayURL  string
+	IPFSHash        string
+	ExecutionClient string // Optional: override execution client (e.g., geth, reth, nethermind)
+	ConsensusClient string // Optional: override consensus client (e.g., prysm, teku, nimbus, lodestar)
+	GitHub          github.GitHubConfig
 }
 
 // ParseConfig parses CLI flags and environment variables into a Config struct
@@ -21,6 +23,10 @@ func ParseConfig() Config {
 	// CLI flags
 	ipfsGatewayUrl := flag.String("ipfs-gateway-url", "", "IPFS gateway URL (required, or set IPFS_GATEWAY_URL env)")
 	ipfsHash := flag.String("ipfs-hash", "", "IPFS hash for the test package (required, or set IPFS_HASH env)")
+
+	// Optional client override flags
+	executionClient := flag.String("execution-client", "", "Override execution client (geth, reth, nethermind, besu, erigon) (or set EXECUTION_CLIENT env)")
+	consensusClient := flag.String("consensus-client", "", "Override consensus client (prysm, teku, nimbus, lodestar) (or set CONSENSUS_CLIENT env)")
 
 	// GitHub flags (optional, for PR commenting)
 	githubToken := flag.String("github-token", "", "GitHub token for PR commenting (or set GITHUB_TOKEN env)")
@@ -33,8 +39,10 @@ func ParseConfig() Config {
 
 	// Build config with flag values, falling back to environment variables
 	config := Config{
-		IPFSGatewayURL: getConfigValue(*ipfsGatewayUrl, "IPFS_GATEWAY_URL", ""),
-		IPFSHash:       getConfigValue(*ipfsHash, "IPFS_HASH", ""),
+		IPFSGatewayURL:  getConfigValue(*ipfsGatewayUrl, "IPFS_GATEWAY_URL", ""),
+		IPFSHash:        getConfigValue(*ipfsHash, "IPFS_HASH", ""),
+		ExecutionClient: getConfigValue(*executionClient, "EXECUTION_CLIENT", ""),
+		ConsensusClient: getConfigValue(*consensusClient, "CONSENSUS_CLIENT", ""),
 		GitHub: github.ParseGitHubConfigFromEnv(
 			getConfigValue(*githubToken, "GITHUB_TOKEN", ""),
 			getConfigValue(*githubRepository, "GITHUB_REPOSITORY", ""),

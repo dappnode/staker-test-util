@@ -30,13 +30,30 @@ type Urls struct {
 	DappmanagerURL string
 }
 
+// ClientOverrides holds optional client override settings
+type ClientOverrides struct {
+	ExecutionClient string // Short name like "geth", "reth", etc.
+	ConsensusClient string // Short name like "prysm", "teku", etc.
+}
+
+// ClientOverrideResult holds the result of applying overrides with any warnings
+type ClientOverrideResult struct {
+	ExecutionDnpName string
+	ConsensusDnpName string
+	Warnings         []string
+}
+
 const dappmanagerURL = "http://dappmanager.dappnode:7000"
 
-func StakerConfigForNetwork(pkg Pkg) StakerConfig {
+// hoodi network client lists
+var (
+	hoodiExecClients = []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
+	hoodiConsClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth"}
+)
+
+func StakerConfigForNetwork(pkg Pkg, overrides ClientOverrides) (StakerConfig, []string) {
 	// Only hoodi network is supported
 	network := "hoodi"
-	execClients := []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
-	consClients := []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth"}
 	web3signer := "web3signer-hoodi.dnp.dappnode.eth"
 	mevboost := "mev-boost-hoodi.dnp.dappnode.eth"
 	relays := []string{}
@@ -47,8 +64,11 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		DappmanagerURL: dappmanagerURL,
 	}
 
-	ecDnpName := matchOrRandom(pkg.DnpName, execClients)
-	ccDnpName := matchOrRandom(pkg.DnpName, consClients)
+	// Resolve execution and consensus clients with override logic
+	result := resolveClientsWithOverrides(pkg, overrides, hoodiExecClients, hoodiConsClients)
+
+	ecDnpName := result.ExecutionDnpName
+	ccDnpName := result.ConsensusDnpName
 
 	serviceName := serviceNameFromExecutionClient(ecDnpName, network)
 	volumeName := getExecutionVolumeName(ecDnpName, serviceName)
@@ -67,7 +87,100 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 		ValidatorContainerName:    containerName("validator", ccDnpName),
 		ExecutionContainerName:    containerName(serviceName, ecDnpName),
 		ExecutionVolumeTargetPath: fmt.Sprintf("/var/lib/docker/volumes/%s/_data", volumeName),
+	}, result.Warnings
+}
+
+// resolveClientsWithOverrides determines execution and consensus clients based on:
+// 1. If pkg matches an execution/consensus client, use it (overriding any flag/env with warning)
+// 2. Otherwise, use the override if provided
+// 3. Otherwise, pick a random client
+func resolveClientsWithOverrides(pkg Pkg, overrides ClientOverrides, execClients, consClients []string) ClientOverrideResult {
+	result := ClientOverrideResult{}
+
+	// Check if pkg is an execution client
+	pkgMatchedExec := matchClient(pkg.DnpName, execClients)
+	// Check if pkg is a consensus client
+	pkgMatchedCons := matchClient(pkg.DnpName, consClients)
+
+	// Resolve execution client
+	if pkgMatchedExec != "" {
+		// Pkg is an execution client - use it
+		if overrides.ExecutionClient != "" {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Package '%s' is an execution client; ignoring --execution-client flag '%s'",
+					pkg.DnpName, overrides.ExecutionClient))
+		}
+		result.ExecutionDnpName = pkgMatchedExec
+	} else if overrides.ExecutionClient != "" {
+		// Use override if provided
+		matched := matchClientByShortName(overrides.ExecutionClient, execClients)
+		if matched != "" {
+			result.ExecutionDnpName = matched
+		} else {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Unknown execution client '%s'; using random", overrides.ExecutionClient))
+			result.ExecutionDnpName = randomClient(execClients)
+		}
+	} else {
+		// Pick random
+		result.ExecutionDnpName = randomClient(execClients)
 	}
+
+	// Resolve consensus client
+	if pkgMatchedCons != "" {
+		// Pkg is a consensus client - use it
+		if overrides.ConsensusClient != "" {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Package '%s' is a consensus client; ignoring --consensus-client flag '%s'",
+					pkg.DnpName, overrides.ConsensusClient))
+		}
+		result.ConsensusDnpName = pkgMatchedCons
+	} else if overrides.ConsensusClient != "" {
+		// Use override if provided
+		matched := matchClientByShortName(overrides.ConsensusClient, consClients)
+		if matched != "" {
+			result.ConsensusDnpName = matched
+		} else {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Unknown consensus client '%s'; using random", overrides.ConsensusClient))
+			result.ConsensusDnpName = randomClient(consClients)
+		}
+	} else {
+		// Pick random
+		result.ConsensusDnpName = randomClient(consClients)
+	}
+
+	return result
+}
+
+// matchClient returns the matching client dnpName if found, empty string otherwise
+func matchClient(dnpName string, candidates []string) string {
+	for _, c := range candidates {
+		if strings.Contains(dnpName, c) || strings.Contains(c, dnpName) {
+			return c
+		}
+	}
+	return ""
+}
+
+// matchClientByShortName matches a short name (e.g., "geth", "prysm") to a full dnpName
+func matchClientByShortName(shortName string, candidates []string) string {
+	shortName = strings.ToLower(shortName)
+	for _, c := range candidates {
+		if strings.Contains(strings.ToLower(c), shortName) {
+			return c
+		}
+	}
+	return ""
+}
+
+// randomClient picks a random client from the list
+func randomClient(candidates []string) string {
+	if len(candidates) == 0 {
+		return ""
+	}
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return candidates[r.Intn(len(candidates))]
 }
 
 // getExecutionVolumeName returns the docker volume name for the execution client
@@ -80,17 +193,4 @@ func getExecutionVolumeName(dnpName, serviceName string) string {
 		volumeArg = "data"
 	}
 	return composeVolumeName(dnpName, volumeArg)
-}
-
-func matchOrRandom(dnpName string, candidates []string) string {
-	for _, c := range candidates {
-		if strings.Contains(dnpName, c) {
-			return c
-		}
-	}
-	if len(candidates) == 0 {
-		return ""
-	}
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return candidates[r.Intn(len(candidates))]
 }
