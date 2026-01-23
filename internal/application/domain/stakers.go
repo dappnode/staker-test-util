@@ -1,24 +1,26 @@
 package domain
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"time"
 )
 
 type StakerConfig struct {
-	ExecutionDnpName         string   `json:"executionDnpName"`
-	ConsensusDnpName         string   `json:"consensusDnpName"`
-	Web3SignerDnpName        string   `json:"web3signerDnpName"`
-	MevBoostDnpName          string   `json:"mevBoostDnpName"`
-	Relays                   []string `json:"relays,omitempty"` // Optional, can be empty
-	Network                  string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
-	Urls                     Urls
-	BrainContainerName       string // The name of the brain container
-	SignerContainerName      string // The name of the web3signer container
-	BeaconchainContainerName string // The name of the beaconchain container
-	ValidatorContainerName   string // The name of the validator container
-	ExecutionContainerName   string // The name of the container to mount the NFS volume to
+	ExecutionDnpName          string   `json:"executionDnpName"`
+	ConsensusDnpName          string   `json:"consensusDnpName"`
+	Web3SignerDnpName         string   `json:"web3signerDnpName"`
+	MevBoostDnpName           string   `json:"mevBoostDnpName"`
+	Relays                    []string `json:"relays,omitempty"` // Optional, can be empty
+	Network                   string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
+	Urls                      Urls
+	BrainContainerName        string // The name of the brain container
+	SignerContainerName       string // The name of the web3signer container
+	BeaconchainContainerName  string // The name of the beaconchain container
+	ValidatorContainerName    string // The name of the validator container
+	ExecutionContainerName    string // The name of the container to mount the NFS volume to
+	ExecutionVolumeTargetPath string // Path to the execution client's docker volume data
 }
 
 type Urls struct {
@@ -48,20 +50,36 @@ func StakerConfigForNetwork(pkg Pkg) StakerConfig {
 	ecDnpName := matchOrRandom(pkg.DnpName, execClients)
 	ccDnpName := matchOrRandom(pkg.DnpName, consClients)
 
+	serviceName := serviceNameFromExecutionClient(ecDnpName, network)
+	volumeName := getExecutionVolumeName(ecDnpName, serviceName)
+
 	return StakerConfig{
-		ExecutionDnpName:         ecDnpName,
-		ConsensusDnpName:         ccDnpName,
-		Web3SignerDnpName:        web3signer,
-		MevBoostDnpName:          mevboost,
-		Relays:                   relays,
-		Network:                  network,
-		Urls:                     urls,
-		BrainContainerName:       containerName("brain", web3signer),
-		SignerContainerName:      containerName("web3signer", web3signer),
-		BeaconchainContainerName: containerName("beacon-chain", ccDnpName),
-		ValidatorContainerName:   containerName("validator", ccDnpName),
-		ExecutionContainerName:   containerName(serviceNameFromExecutionClient(ecDnpName, network), ecDnpName),
+		ExecutionDnpName:          ecDnpName,
+		ConsensusDnpName:          ccDnpName,
+		Web3SignerDnpName:         web3signer,
+		MevBoostDnpName:           mevboost,
+		Relays:                    relays,
+		Network:                   network,
+		Urls:                      urls,
+		BrainContainerName:        containerName("brain", web3signer),
+		SignerContainerName:       containerName("web3signer", web3signer),
+		BeaconchainContainerName:  containerName("beacon-chain", ccDnpName),
+		ValidatorContainerName:    containerName("validator", ccDnpName),
+		ExecutionContainerName:    containerName(serviceName, ecDnpName),
+		ExecutionVolumeTargetPath: fmt.Sprintf("/var/lib/docker/volumes/%s/_data", volumeName),
 	}
+}
+
+// getExecutionVolumeName returns the docker volume name for the execution client
+// reth and geth use their service name as volume name, others use "data"
+func getExecutionVolumeName(dnpName, serviceName string) string {
+	var volumeArg string
+	if serviceName == "geth" || serviceName == "reth" {
+		volumeArg = serviceName
+	} else {
+		volumeArg = "data"
+	}
+	return composeVolumeName(dnpName, volumeArg)
 }
 
 func matchOrRandom(dnpName string, candidates []string) string {

@@ -40,7 +40,7 @@ func NewSnapshotManagerAdapter(
 // Returns true if no snapshot exists or if a newer snapshot is available
 func (s *SnapshotManagerAdapter) NeedsSnapshotDownload(ctx context.Context, client domain.ExecutionClientInfo, latestBlockNumber string) (bool, error) {
 	// Check if block number file exists
-	exists, err := s.blockNumber.BlockNumberExists(ctx, client.VolumeTargetPath)
+	exists, err := s.blockNumber.BlockNumberExists(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -50,7 +50,7 @@ func (s *SnapshotManagerAdapter) NeedsSnapshotDownload(ctx context.Context, clie
 	}
 
 	// Check if newer snapshot is available
-	isNewer, err := s.blockNumber.IsNewerSnapshot(ctx, client.VolumeTargetPath, latestBlockNumber)
+	isNewer, err := s.blockNumber.IsNewerSnapshot(ctx, latestBlockNumber)
 	if err != nil {
 		return false, err
 	}
@@ -79,7 +79,7 @@ func (s *SnapshotManagerAdapter) DownloadAndMountSnapshot(ctx context.Context, n
 	}
 
 	// 3. Write block number file
-	if err := s.blockNumber.WriteBlockNumber(ctx, client.VolumeTargetPath, latestBlockNumber); err != nil {
+	if err := s.blockNumber.WriteBlockNumber(ctx, latestBlockNumber); err != nil {
 		return fmt.Errorf("failed to write block number: %w", err)
 	}
 

@@ -68,7 +68,7 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	}
 
 	// Read snapshot block number
-	e.readSnapshotBlockNumber(ctx, stakerConfig, report)
+	e.readSnapshotBlockNumber(ctx, report)
 
 	// SetStakerConfig
 	if err := timeOperation(report, "SetStakerConfig", func() error {
@@ -111,18 +111,12 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 
 // readSnapshotBlockNumber reads the snapshot block number from the execution client's volume
 // and stores it in the report. Errors are silently ignored as this is informational.
-func (e *EnsurerAdapter) readSnapshotBlockNumber(ctx context.Context, stakerConfig domain.StakerConfig, report *domain.TestReport) {
-	// Get execution client info to find the volume path
-	execClients := domain.GetExecutionClients(stakerConfig.Network, nil)
-	for _, client := range execClients {
-		if client.DnpName == stakerConfig.ExecutionDnpName {
-			blockNumberStr, err := e.BlockNumber.ReadBlockNumber(ctx, client.VolumeTargetPath)
-			if err == nil && blockNumberStr != "" {
-				if blockNumber, parseErr := strconv.ParseUint(blockNumberStr, 10, 64); parseErr == nil {
-					report.SnapshotBlockNumber = blockNumber
-				}
-			}
-			break
+func (e *EnsurerAdapter) readSnapshotBlockNumber(ctx context.Context, report *domain.TestReport) {
+	// Use the BlockNumber adapter which is already initialized with the correct path
+	blockNumberStr, err := e.BlockNumber.ReadBlockNumber(ctx)
+	if err == nil && blockNumberStr != "" {
+		if blockNumber, parseErr := strconv.ParseUint(blockNumberStr, 10, 64); parseErr == nil {
+			report.SnapshotBlockNumber = blockNumber
 		}
 	}
 }

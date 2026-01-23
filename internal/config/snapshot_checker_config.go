@@ -12,10 +12,10 @@ var snapshotLogPrefix = "SnapshotCheckerConfig"
 
 // SnapshotCheckerAppConfig holds all application configuration for snapshot checker
 type SnapshotCheckerAppConfig struct {
-	ExecutionClients []string
-	Network          string
-	CronIntervalSec  int
-	RunOnce          bool // If true, run once and exit (for testing)
+	ExecutionClient string
+	Network         string
+	CronIntervalSec int
+	RunOnce         bool // If true, run once and exit (for testing)
 }
 
 // DefaultCronIntervalSec is 6 hours in seconds
@@ -24,7 +24,7 @@ const DefaultCronIntervalSec = 6 * 60 * 60
 // ParseSnapshotCheckerConfig parses CLI flags and environment variables into a SnapshotCheckerAppConfig
 func ParseSnapshotCheckerConfig() SnapshotCheckerAppConfig {
 	// CLI flags
-	executionClients := flag.String("execution-clients", "", "Comma-separated list of execution clients (geth, nethermind, reth, besu, erigon). Default: all")
+	executionClient := flag.String("execution-client", "", "Execution client name (geth, nethermind, reth, besu, erigon). Required.")
 	network := flag.String("network", "hoodi", "Network name (e.g., hoodi). Default: hoodi")
 	cronIntervalSec := flag.Int("cron-interval", 0, "Interval between snapshot checks in seconds. Default: 21600 (6 hours)")
 	runOnce := flag.Bool("run-once", false, "Run once and exit (for testing). Default: false")
@@ -32,10 +32,10 @@ func ParseSnapshotCheckerConfig() SnapshotCheckerAppConfig {
 	flag.Parse()
 
 	config := SnapshotCheckerAppConfig{
-		ExecutionClients: parseExecutionClients(getConfigValue(*executionClients, "EXECUTION_CLIENTS", "")),
-		Network:          getConfigValue(*network, "NETWORK", "hoodi"),
-		CronIntervalSec:  getCronIntervalConfigValueInt(*cronIntervalSec, "CRON_INTERVAL_SEC", DefaultCronIntervalSec),
-		RunOnce:          *runOnce || os.Getenv("RUN_ONCE") == "true",
+		ExecutionClient: strings.TrimSpace(strings.ToLower(getConfigValue(*executionClient, "EXECUTION_CLIENT", ""))),
+		Network:         getConfigValue(*network, "NETWORK", "hoodi"),
+		CronIntervalSec: getCronIntervalConfigValueInt(*cronIntervalSec, "CRON_INTERVAL_SEC", DefaultCronIntervalSec),
+		RunOnce:         *runOnce || os.Getenv("RUN_ONCE") == "true",
 	}
 
 	return config
@@ -60,32 +60,16 @@ func getCronIntervalConfigValueInt(flagValue int, envName string, defaultValue i
 	return defaultValue
 }
 
-// parseExecutionClients parses the comma-separated list of execution clients
-// Returns empty slice if input is empty (means all clients)
-func parseExecutionClients(input string) []string {
-	if input == "" {
-		return nil // nil means all clients
-	}
-
-	var clients []string
-	for _, client := range strings.Split(input, ",") {
-		client = strings.TrimSpace(strings.ToLower(client))
-		if client != "" {
-			clients = append(clients, client)
-		}
-	}
-	return clients
-}
-
 // Validate checks that required configuration values are present and valid
 func (c *SnapshotCheckerAppConfig) Validate() {
-	// Validate execution clients if specified
-	if len(c.ExecutionClients) > 0 {
-		for _, client := range c.ExecutionClients {
-			if !domain.IsValidExecutionClient(client) {
-				logger.FatalWithPrefix(snapshotLogPrefix, "Invalid execution client '%s'. Valid clients: %v", client, domain.ValidExecutionClients)
-			}
-		}
+	// Validate execution client is specified
+	if c.ExecutionClient == "" {
+		logger.FatalWithPrefix(snapshotLogPrefix, "Execution client is required. Valid clients: %v", domain.ValidExecutionClients)
+	}
+
+	// Validate execution client is valid
+	if !domain.IsValidExecutionClient(c.ExecutionClient) {
+		logger.FatalWithPrefix(snapshotLogPrefix, "Invalid execution client '%s'. Valid clients: %v", c.ExecutionClient, domain.ValidExecutionClients)
 	}
 
 	// Validate cron interval
@@ -94,6 +78,6 @@ func (c *SnapshotCheckerAppConfig) Validate() {
 		c.CronIntervalSec = 60
 	}
 
-	logger.InfoWithPrefix(snapshotLogPrefix, "Configuration validated: network=%s, clients=%v, interval=%ds, runOnce=%v",
-		c.Network, c.ExecutionClients, c.CronIntervalSec, c.RunOnce)
+	logger.InfoWithPrefix(snapshotLogPrefix, "Configuration validated: network=%s, client=%s, interval=%ds, runOnce=%v",
+		c.Network, c.ExecutionClient, c.CronIntervalSec, c.RunOnce)
 }

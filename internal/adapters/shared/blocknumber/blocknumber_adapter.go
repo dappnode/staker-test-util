@@ -11,25 +11,36 @@ import (
 )
 
 // BlockNumberAdapter handles the snapshot_block_number file operations
-type BlockNumberAdapter struct{}
+type BlockNumberAdapter struct {
+	basePath string
+}
 
-// NewBlockNumberAdapter creates a new BlockNumberAdapter
+// NewBlockNumberAdapter creates a new BlockNumberAdapter with default path
 func NewBlockNumberAdapter() *BlockNumberAdapter {
-	return &BlockNumberAdapter{}
+	return &BlockNumberAdapter{
+		basePath: domain.SnapshotProgressPath,
+	}
 }
 
-// blockNumberFilePath returns the full path to the block number file inside a volume
-func (b *BlockNumberAdapter) blockNumberFilePath(volumeTargetPath string) string {
-	return filepath.Join(volumeTargetPath, domain.SnapshotBlockNumberFileName)
+// NewBlockNumberAdapterWithPath creates a new BlockNumberAdapter with a custom base path
+func NewBlockNumberAdapterWithPath(basePath string) *BlockNumberAdapter {
+	return &BlockNumberAdapter{
+		basePath: basePath,
+	}
 }
 
-// WriteBlockNumber writes the block number to the snapshot_block_number file in the volume
-func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, volumeTargetPath string, blockNumber string) error {
-	filePath := b.blockNumberFilePath(volumeTargetPath)
+// blockNumberFilePath returns the full path to the block number file
+func (b *BlockNumberAdapter) blockNumberFilePath() string {
+	return filepath.Join(b.basePath, domain.SnapshotBlockNumberFileName)
+}
+
+// WriteBlockNumber writes the block number to the snapshot_block_number file
+func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, blockNumber string) error {
+	filePath := b.blockNumberFilePath()
 
 	// Ensure directory exists
-	if err := os.MkdirAll(volumeTargetPath, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", volumeTargetPath, err)
+	if err := os.MkdirAll(b.basePath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", b.basePath, err)
 	}
 
 	f, err := os.Create(filePath)
@@ -46,10 +57,10 @@ func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, volumeTargetP
 	return nil
 }
 
-// ReadBlockNumber reads the block number from the snapshot_block_number file in the volume
+// ReadBlockNumber reads the block number from the snapshot_block_number file
 // Returns empty string if file doesn't exist
-func (b *BlockNumberAdapter) ReadBlockNumber(ctx context.Context, volumeTargetPath string) (string, error) {
-	filePath := b.blockNumberFilePath(volumeTargetPath)
+func (b *BlockNumberAdapter) ReadBlockNumber(ctx context.Context) (string, error) {
+	filePath := b.blockNumberFilePath()
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -63,9 +74,9 @@ func (b *BlockNumberAdapter) ReadBlockNumber(ctx context.Context, volumeTargetPa
 	return blockNumber, nil
 }
 
-// BlockNumberExists checks if a block number file exists in the volume
-func (b *BlockNumberAdapter) BlockNumberExists(ctx context.Context, volumeTargetPath string) (bool, error) {
-	filePath := b.blockNumberFilePath(volumeTargetPath)
+// BlockNumberExists checks if a block number file exists
+func (b *BlockNumberAdapter) BlockNumberExists(ctx context.Context) (bool, error) {
+	filePath := b.blockNumberFilePath()
 	_, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -101,8 +112,8 @@ func (b *BlockNumberAdapter) CompareBlockNumbers(a, blockB string) int {
 }
 
 // IsNewerSnapshot checks if the latest available block number is newer than the current one
-func (b *BlockNumberAdapter) IsNewerSnapshot(ctx context.Context, volumeTargetPath string, latestBlockNumber string) (bool, error) {
-	currentBlockNumber, err := b.ReadBlockNumber(ctx, volumeTargetPath)
+func (b *BlockNumberAdapter) IsNewerSnapshot(ctx context.Context, latestBlockNumber string) (bool, error) {
+	currentBlockNumber, err := b.ReadBlockNumber(ctx)
 	if err != nil {
 		return false, err
 	}

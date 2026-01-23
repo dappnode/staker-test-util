@@ -6,7 +6,6 @@ import (
 	"clients-test/internal/logger"
 	"context"
 	"fmt"
-	"sync"
 	"time"
 )
 
@@ -43,7 +42,7 @@ func (s *SnapshotCheckerService) GetSnapshotManager() ports.SnapshotManager {
 // Start starts the snapshot checker cron job
 func (s *SnapshotCheckerService) Start(ctx context.Context, runOnce bool) error {
 	logger.InfoWithPrefix(snapshotLogPrefix, "Starting snapshot checker for network: %s", s.config.Network)
-	logger.InfoWithPrefix(snapshotLogPrefix, "Managing %d execution clients", len(s.config.ExecutionClients))
+	logger.InfoWithPrefix(snapshotLogPrefix, "Managing execution client: %s", s.config.ExecutionClient.ShortName)
 
 	// Run immediately on startup
 	logger.InfoWithPrefix(snapshotLogPrefix, "Running initial snapshot check...")
@@ -79,68 +78,13 @@ func (s *SnapshotCheckerService) Start(ctx context.Context, runOnce bool) error 
 	}
 }
 
-// CheckAndUpdateSnapshots checks all configured clients and updates snapshots as needed
+// CheckAndUpdateSnapshots checks the configured client and updates snapshot if needed
 func (s *SnapshotCheckerService) CheckAndUpdateSnapshots(ctx context.Context) error {
-	logger.InfoWithPrefix(snapshotLogPrefix, "Checking snapshots for %d clients", len(s.config.ExecutionClients))
+	client := s.config.ExecutionClient
+	logger.InfoWithPrefix(snapshotLogPrefix, "Checking snapshot for client: %s", client.ShortName)
 
-	// Wait for any ongoing tests to complete before proceeding
-	logger.InfoWithPrefix(snapshotLogPrefix, "Checking if test is in progress...")
-	if err := s.WaitForTestCompleteWithRetry(ctx); err != nil {
-		return fmt.Errorf("error while waiting for test to complete: %w", err)
-	}
-	logger.InfoWithPrefix(snapshotLogPrefix, "No ongoing tests detected, proceeding with snapshot check")
-
-	// Check if a download is already in progress
-	logger.InfoWithPrefix(snapshotLogPrefix, "Checking if download is already in progress...")
-	inProgress, err := s.downloadProgress.IsDownloadInProgress(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to check download progress: %w", err)
-	}
-	if inProgress {
-		logger.InfoWithPrefix(snapshotLogPrefix, "Download already in progress, skipping this cycle")
-		return nil
-	}
-
-	// Set download in progress for this cycle
-	logger.InfoWithPrefix(snapshotLogPrefix, "Setting download in progress marker...")
-	if err := s.downloadProgress.SetDownloadInProgress(ctx); err != nil {
-		return fmt.Errorf("failed to set download in progress: %w", err)
-	}
-
-	// Ensure we clear the progress file on completion (success or failure)
-	defer func() {
-		logger.InfoWithPrefix(snapshotLogPrefix, "Clearing download in progress marker...")
-		if err := s.downloadProgress.ClearDownloadInProgress(ctx); err != nil {
-			logger.ErrorWithPrefix(snapshotLogPrefix, "Failed to clear download in progress: %v", err)
-		}
-	}()
-
-	// Process clients in parallel using goroutines
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(s.config.ExecutionClients))
-
-	for _, client := range s.config.ExecutionClients {
-		wg.Add(1)
-		go func(client domain.ExecutionClientInfo) {
-			defer wg.Done()
-			if err := s.checkAndUpdateClient(ctx, client); err != nil {
-				errChan <- fmt.Errorf("client %s: %w", client.ShortName, err)
-			}
-		}(client)
-	}
-
-	wg.Wait()
-	close(errChan)
-
-	// Collect errors
-	var errors []error
-	for err := range errChan {
-		errors = append(errors, err)
-	}
-
-	if len(errors) > 0 {
-		logger.ErrorWithPrefix(snapshotLogPrefix, "Snapshot check completed with %d errors", len(errors))
-		return fmt.Errorf("snapshot check had %d errors: %v", len(errors), errors)
+	if err := s.checkAndUpdateClient(ctx, client); err != nil {
+		return fmt.Errorf("client %s: %w", client.ShortName, err)
 	}
 
 	logger.InfoWithPrefix(snapshotLogPrefix, "Snapshot check completed successfully")
@@ -150,6 +94,24 @@ func (s *SnapshotCheckerService) CheckAndUpdateSnapshots(ctx context.Context) er
 // checkAndUpdateClient checks a single client and updates snapshot if needed
 func (s *SnapshotCheckerService) checkAndUpdateClient(ctx context.Context, client domain.ExecutionClientInfo) error {
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Checking client (%s)", client.ShortName, client.DnpName)
+
+	// Wait for any ongoing tests to complete before proceeding with this client
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Checking if test is in progress...", client.ShortName)
+	if err := s.waitForTestCompleteWithRetry(ctx, client.ShortName); err != nil {
+		return fmt.Errorf("error while waiting for test to complete: %w", err)
+	}
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] No ongoing tests detected", client.ShortName)
+
+	// Check if a download is already in progress for this client
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Checking if download is already in progress...", client.ShortName)
+	inProgress, err := s.downloadProgress.IsDownloadInProgress(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check download progress: %w", err)
+	}
+	if inProgress {
+		logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Download already in progress, skipping", client.ShortName)
+		return nil
+	}
 
 	// Get latest available block number from ethpandaops
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Fetching latest available block number...", client.ShortName)
@@ -172,6 +134,20 @@ func (s *SnapshotCheckerService) checkAndUpdateClient(ctx context.Context, clien
 	}
 
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Snapshot download needed", client.ShortName)
+
+	// Set download in progress for this client
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Setting download in progress marker...", client.ShortName)
+	if err := s.downloadProgress.SetDownloadInProgress(ctx); err != nil {
+		return fmt.Errorf("failed to set download in progress: %w", err)
+	}
+
+	// Ensure we clear the progress file on completion (success or failure)
+	defer func() {
+		logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Clearing download in progress marker...", client.ShortName)
+		if err := s.downloadProgress.ClearDownloadInProgress(ctx); err != nil {
+			logger.ErrorWithPrefix(snapshotLogPrefix, "[%s] Failed to clear download in progress: %v", client.ShortName, err)
+		}
+	}()
 
 	// Download and mount snapshot
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Starting snapshot download and extraction...", client.ShortName)
@@ -198,10 +174,16 @@ func (s *SnapshotCheckerService) StopAllDownloads(ctx context.Context) {
 	logger.InfoWithPrefix(snapshotLogPrefix, "All download containers stopped")
 }
 
-// WaitForTestCompleteWithRetry waits until no test is in progress
-// using a fixed 30 second retry interval. This is useful for the snapshot checker
-// to wait for tests to complete before proceeding with downloads.
-func (s *SnapshotCheckerService) WaitForTestCompleteWithRetry(ctx context.Context) error {
+// ClearDownloadMarker clears the download in progress marker
+func (s *SnapshotCheckerService) ClearDownloadMarker(ctx context.Context) {
+	if err := s.downloadProgress.ClearDownloadInProgress(ctx); err != nil {
+		logger.WarnWithPrefix(snapshotLogPrefix, "Failed to clear download marker: %v", err)
+	}
+}
+
+// waitForTestCompleteWithRetry waits until no test is in progress
+// using a fixed 30 second retry interval.
+func (s *SnapshotCheckerService) waitForTestCompleteWithRetry(ctx context.Context, clientName string) error {
 	const retryInterval = 30 * time.Second
 
 	for {
@@ -218,7 +200,7 @@ func (s *SnapshotCheckerService) WaitForTestCompleteWithRetry(ctx context.Contex
 				return nil
 			}
 
-			logger.InfoWithPrefix(snapshotLogPrefix, "Test in progress, waiting %s before retry...", retryInterval)
+			logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Test in progress, waiting %s before retry...", clientName, retryInterval)
 			time.Sleep(retryInterval)
 		}
 	}

@@ -67,10 +67,11 @@ func main() {
 	// Initialize GitHub adapter for PR commenting
 	githubAdapter := github.NewGitHubAdapter(cfg.GitHub)
 
-	// Initialize shared adapters
-	downloadAdapter := download.NewDownloadAdapter()
-	testAdapter := testing.NewTestAdapter()
-	blockAdapter := blocknumber.NewBlockNumberAdapter()
+	// Initialize shared adapters with execution client's volume path
+	logger.InfoWithPrefix(logPrefix, "Using volume path for flag files: %s", stakerConfig.ExecutionVolumeTargetPath)
+	downloadAdapter := download.NewDownloadAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
+	testAdapter := testing.NewTestAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
+	blockAdapter := blocknumber.NewBlockNumberAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 
 	// Log GitHub configuration status
 	if githubAdapter.IsEnabled() {
@@ -127,6 +128,7 @@ func printStakerConfig(prefix string, sc domain.StakerConfig) {
   MevBoostDnpName: %s
   Network: %s
   ExecutionContainerName: %s
+  ExecutionVolumeTargetPath: %s
   Urls:
     ExecutionURL: %s
     BrainURL: %s
@@ -139,6 +141,7 @@ func printStakerConfig(prefix string, sc domain.StakerConfig) {
 		sc.MevBoostDnpName,
 		sc.Network,
 		sc.ExecutionContainerName,
+		sc.ExecutionVolumeTargetPath,
 		sc.Urls.ExecutionURL,
 		sc.Urls.BrainURL,
 		sc.Urls.BeaconchainURL,

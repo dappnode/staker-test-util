@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sort"
 	"strings"
 	"syscall"
 )
@@ -29,11 +28,17 @@ func main() {
 	cfg := config.ParseSnapshotCheckerConfig()
 	cfg.Validate()
 
-	// Initialize domain config directly
+	// Get execution client info
+	executionClient, ok := domain.GetExecutionClient(cfg.Network, cfg.ExecutionClient)
+	if !ok {
+		logger.FatalWithPrefix(logPrefix, "Failed to get execution client info for '%s'", cfg.ExecutionClient)
+	}
+
+	// Initialize domain config
 	snapshotConfig := domain.SnapshotCheckerConfig{
-		ExecutionClients: domain.GetExecutionClients(cfg.Network, cfg.ExecutionClients),
-		CronIntervalSec:  cfg.CronIntervalSec,
-		Network:          cfg.Network,
+		ExecutionClient: executionClient,
+		CronIntervalSec: cfg.CronIntervalSec,
+		Network:         cfg.Network,
 	}
 
 	// Print configuration
@@ -52,8 +57,12 @@ func main() {
 	if err != nil {
 		logger.FatalWithPrefix(logPrefix, "Failed to init DockerAdapter: %v", err)
 	}
-	downloadAdapter := download.NewDownloadAdapter()
-	blockNumberAdapter := blocknumber.NewBlockNumberAdapter()
+
+	// Initialize progress adapters with client's volume path
+	logger.InfoWithPrefix(logPrefix, "Using volume path for flag files: %s", executionClient.VolumeTargetPath)
+	downloadAdapter := download.NewDownloadAdapterWithPath(executionClient.VolumeTargetPath)
+	testAdapter := testing.NewTestAdapterWithPath(executionClient.VolumeTargetPath)
+	blockNumberAdapter := blocknumber.NewBlockNumberAdapterWithPath(executionClient.VolumeTargetPath)
 
 	// Create composite snapshot manager adapter
 	snapshotManagerAdapter := snapshotmanager.NewSnapshotManagerAdapter(
@@ -62,17 +71,13 @@ func main() {
 		blockNumberAdapter,
 	)
 
-	// Initialize test adapter for checking test in progress
-	testAdapter := testing.NewTestAdapter()
-
-	// If a previous run crashed/was interrupted, the marker file can be left behind and block future runs.
-	// Clear it on startup so the service can recover.
+	// Clear any stale download marker on startup
 	if inProgress, err := downloadAdapter.IsDownloadInProgress(ctx); err != nil {
-		logger.WarnWithPrefix(logPrefix, "Failed to check %s marker: %v", domain.ProgressFileName, err)
+		logger.WarnWithPrefix(logPrefix, "[%s] Failed to check %s marker: %v", executionClient.ShortName, domain.ProgressFileName, err)
 	} else if inProgress {
-		logger.WarnWithPrefix(logPrefix, "Found stale %s marker; clearing it on startup", domain.ProgressFileName)
+		logger.WarnWithPrefix(logPrefix, "[%s] Found stale %s marker; clearing it on startup", executionClient.ShortName, domain.ProgressFileName)
 		if err := downloadAdapter.ClearDownloadInProgress(context.Background()); err != nil {
-			logger.WarnWithPrefix(logPrefix, "Failed to clear %s marker on startup: %v", domain.ProgressFileName, err)
+			logger.WarnWithPrefix(logPrefix, "[%s] Failed to clear %s marker on startup: %v", executionClient.ShortName, domain.ProgressFileName, err)
 		}
 	}
 
@@ -89,10 +94,8 @@ func main() {
 		logger.InfoWithPrefix(logPrefix, "Received signal: %v, shutting down...", sig)
 		// Stop any running download containers using the service method
 		service.StopAllDownloads(context.Background())
-		// Best-effort cleanup: clear marker file `.download_in_progress` so next run isn't blocked.
-		if err := downloadAdapter.ClearDownloadInProgress(context.Background()); err != nil {
-			logger.WarnWithPrefix(logPrefix, "Failed to clear %s marker on shutdown: %v", domain.ProgressFileName, err)
-		}
+		// Best-effort cleanup: clear marker file so next run isn't blocked.
+		service.ClearDownloadMarker(context.Background())
 		cancel()
 	}()
 
@@ -109,23 +112,18 @@ func main() {
 
 // helper to pretty print snapshot checker config
 func printSnapshotCheckerConfig(prefix string, sc domain.SnapshotCheckerConfig) {
-	clients := append([]domain.ExecutionClientInfo(nil), sc.ExecutionClients...)
-	sort.Slice(clients, func(i, j int) bool {
-		return clients[i].ShortName < clients[j].ShortName
-	})
+	c := sc.ExecutionClient
 
 	var b strings.Builder
 	b.WriteString("SnapshotCheckerConfig:\n")
 	b.WriteString(fmt.Sprintf("  Network: %s\n", sc.Network))
 	b.WriteString(fmt.Sprintf("  CronIntervalSec: %d\n", sc.CronIntervalSec))
-	b.WriteString("  ExecutionClients:\n")
-	for _, c := range clients {
-		b.WriteString(fmt.Sprintf("    - ShortName: %s\n", c.ShortName))
-		b.WriteString(fmt.Sprintf("      DnpName: %s\n", c.DnpName))
-		b.WriteString(fmt.Sprintf("      VolumeName: %s\n", c.VolumeName))
-		b.WriteString(fmt.Sprintf("      ContainerName: %s\n", c.ContainerName))
-		b.WriteString(fmt.Sprintf("      VolumeTargetPath: %s\n", c.VolumeTargetPath))
-	}
+	b.WriteString("  ExecutionClient:\n")
+	b.WriteString(fmt.Sprintf("    ShortName: %s\n", c.ShortName))
+	b.WriteString(fmt.Sprintf("    DnpName: %s\n", c.DnpName))
+	b.WriteString(fmt.Sprintf("    VolumeName: %s\n", c.VolumeName))
+	b.WriteString(fmt.Sprintf("    ContainerName: %s\n", c.ContainerName))
+	b.WriteString(fmt.Sprintf("    VolumeTargetPath: %s\n", c.VolumeTargetPath))
 
 	msg := b.String()
 	logger.InfoWithPrefix(prefix, "%s", msg)
