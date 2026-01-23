@@ -9,15 +9,80 @@ A testing utility for Dappnode staker packages that runs in GitHub self-hosted r
 - **Timing Measurements**: Measures duration of all test phases (setup, execution, cleanup)
 - **Container Log Collection**: Captures error logs from all relevant containers during test execution
 - **Detailed Reports**: Generates comprehensive reports with clients used, timings, and error logs
+- **Snapshot Management**: Automatically downloads and manages execution client snapshots
+
+## Quick Start (CI Usage)
+
+### Using Docker Images from GHCR
+
+Docker images are automatically published to GitHub Container Registry on every push to main and on releases.
+
+```bash
+# Test Runner
+ghcr.io/dappnode/staker-test-util/test-runner:latest
+
+# Snapshot Checker
+ghcr.io/dappnode/staker-test-util/snapshot-checker:latest
+```
+
+### Test Runner in GitHub Actions
+
+```yaml
+- name: Run Staker Tests
+  run: |
+    docker run --rm \
+      --network dncore_network \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+      -e IPFS_GATEWAY_URL=http://ipfs.dappnode:8080 \
+      -e IPFS_HASH=${{ env.IPFS_HASH }} \
+      -e EXECUTION_CLIENT=geth \
+      -e CONSENSUS_CLIENT=nimbus \
+      -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+      -e GITHUB_REPOSITORY=${{ github.repository }} \
+      -e GITHUB_PR_NUMBER=${{ github.event.pull_request.number }} \
+      ghcr.io/dappnode/staker-test-util/test-runner:latest
+```
+
+### Snapshot Checker in GitHub Actions
+
+```yaml
+- name: Ensure Snapshot Available
+  run: |
+    docker run --rm \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+      -e EXECUTION_CLIENT=geth \
+      -e NETWORK=hoodi \
+      -e RUN_ONCE=true \
+      ghcr.io/dappnode/staker-test-util/snapshot-checker:latest
+```
+
+See [examples/workflows/](examples/workflows/) for complete workflow examples.
 
 ## Configuration
 
-### Required Environment Variables
+### Test Runner Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `IPFS_GATEWAY_URL` | IPFS gateway URL for fetching packages |
-| `IPFS_HASH` | IPFS hash of the test package |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `IPFS_GATEWAY_URL` | IPFS gateway URL for fetching packages | Yes |
+| `IPFS_HASH` | IPFS hash of the test package | Yes |
+| `EXECUTION_CLIENT` | Override execution client (geth, reth, nethermind, besu, erigon) | No |
+| `CONSENSUS_CLIENT` | Override consensus client (prysm, teku, nimbus, lodestar) | No |
+| `LOG_LEVEL` | Log level (DEBUG, INFO, WARN, ERROR) | No |
+
+> **Note:** If the package being tested is an execution or consensus client, it will override the respective environment variable with a warning.
+
+### Snapshot Checker Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `EXECUTION_CLIENT` | Execution client to manage (geth, reth, nethermind, besu, erigon) | Yes |
+| `NETWORK` | Network name (default: hoodi) | No |
+| `CRON_INTERVAL_SEC` | Interval between checks in seconds (default: 21600 = 6h) | No |
+| `RUN_ONCE` | Run once and exit (default: false) | No |
+| `LOG_LEVEL` | Log level (DEBUG, INFO, WARN, ERROR) | No |
 
 ### GitHub Integration (Optional)
 
@@ -36,14 +101,21 @@ These environment variables enable automatic PR commenting. When running in GitH
 All environment variables can also be set via CLI flags:
 
 ```bash
-./staker-test-util \
+# Test Runner
+./test-runner \
   --ipfs-gateway-url="http://ipfs.dappnode:8080" \
   --ipfs-hash="QmSfPFSauovbMzEcvf2a2csoHtfqpViShwEYpuX3fPR8zv" \
+  --execution-client="geth" \
+  --consensus-client="nimbus" \
   --github-token="ghp_xxxx" \
   --github-repository="dappnode/staker-test-util" \
-  --github-pr-number="123" \
-  --github-run-id="12345678" \
-  --github-server-url="https://github.com"
+  --github-pr-number="123"
+
+# Snapshot Checker
+./snapshot-checker \
+  --execution-client="geth" \
+  --cron-interval=21600 \
+  --run-once
 ```
 
 ## GitHub Actions Workflow Example

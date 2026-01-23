@@ -1,0 +1,58 @@
+# Example: Running snapshot-checker as a scheduled job
+#
+# This workflow runs the snapshot-checker to keep execution client snapshots updated.
+# Can run as Docker container or as a binary.
+#
+# Prerequisites:
+# - Self-hosted runner with access to Docker volumes
+
+name: Snapshot Checker
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      execution_client:
+        description: 'Execution client (geth, reth, nethermind, besu, erigon)'
+        required: true
+        default: 'geth'
+      run_once:
+        description: 'Run once and exit'
+        required: false
+        default: 'true'
+
+jobs:
+  # Option 1: Run as Docker container
+  snapshot-check-docker:
+    runs-on: self-hosted
+    steps:
+      - name: Run Snapshot Checker (Docker)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+            -e LOG_LEVEL=INFO \
+            -e EXECUTION_CLIENT=${{ github.event.inputs.execution_client || 'geth' }} \
+            -e NETWORK=hoodi \
+            -e RUN_ONCE=${{ github.event.inputs.run_once || 'true' }} \
+            ghcr.io/dappnode/staker-test-util/snapshot-checker:latest
+
+  # Option 2: Run as binary (alternative approach)
+  # Uncomment to use binary instead of Docker
+  #
+  # snapshot-check-binary:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - name: Download snapshot-checker binary
+  #       run: |
+  #         curl -L -o snapshot-checker \
+  #           https://github.com/dappnode/staker-test-util/releases/latest/download/snapshot-checker-linux-amd64
+  #         chmod +x snapshot-checker
+  #
+  #     - name: Run Snapshot Checker
+  #       run: |
+  #         ./snapshot-checker \
+  #           --execution-client=${{ github.event.inputs.execution_client || 'geth' }} \
+  #           --run-once

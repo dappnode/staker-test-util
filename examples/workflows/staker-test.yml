@@ -1,0 +1,53 @@
+# Example: Using test-runner in your DAppNode package CI
+#
+# This workflow runs the staker test-runner against your package.
+# Copy this to your package repo's .github/workflows/ directory.
+#
+# Prerequisites:
+# - Self-hosted runner with Docker and access to dncore_network
+# - IPFS hash of your package available
+
+name: Staker Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      ipfs_hash:
+        description: 'IPFS hash of the package to test'
+        required: true
+
+jobs:
+  staker-test:
+    runs-on: self-hosted
+    steps:
+      - name: Get IPFS hash
+        id: ipfs
+        run: |
+          # Use input if provided, otherwise you'll need to build/publish your package first
+          if [ -n "${{ github.event.inputs.ipfs_hash }}" ]; then
+            echo "hash=${{ github.event.inputs.ipfs_hash }}" >> $GITHUB_OUTPUT
+          else
+            # Add your logic to get IPFS hash from a previous build step
+            echo "hash=$IPFS_HASH" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Staker Test Runner
+        run: |
+          docker run --rm \
+            --network dncore_network \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+            -e LOG_LEVEL=DEBUG \
+            -e IPFS_GATEWAY_URL=http://ipfs.dappnode:8080 \
+            -e IPFS_HASH=${{ steps.ipfs.outputs.hash }} \
+            -e EXECUTION_CLIENT=geth \
+            -e CONSENSUS_CLIENT=nimbus \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            -e GITHUB_REPOSITORY=${{ github.repository }} \
+            -e GITHUB_PR_NUMBER=${{ github.event.pull_request.number }} \
+            -e GITHUB_RUN_ID=${{ github.run_id }} \
+            -e GITHUB_SERVER_URL=${{ github.server_url }} \
+            ghcr.io/dappnode/staker-test-util/test-runner:latest
