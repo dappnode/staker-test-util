@@ -8,10 +8,6 @@ import (
 // SnapshotManager defines the interface for snapshot management operations
 // This is the port that the snapshot checker service uses to interact with snapshot infrastructure
 type SnapshotManager interface {
-	// NeedsSnapshotDownload determines if a snapshot needs to be downloaded for the given client
-	// Returns true if no snapshot exists or if a newer snapshot is available
-	NeedsSnapshotDownload(ctx context.Context, client domain.ExecutionClientInfo, latestBlockNumber string) (bool, error)
-
 	// DownloadAndMountSnapshot performs the complete snapshot download and mount process
 	DownloadAndMountSnapshot(ctx context.Context, network string, client domain.ExecutionClientInfo) error
 

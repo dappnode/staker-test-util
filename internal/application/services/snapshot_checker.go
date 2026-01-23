@@ -16,6 +16,7 @@ type SnapshotCheckerService struct {
 	snapshotManager  ports.SnapshotManager
 	downloadProgress ports.DownloadProgress
 	testProgress     ports.TestProgress
+	blockNumber      ports.BlockNumber
 	config           domain.SnapshotCheckerConfig
 }
 
@@ -24,12 +25,14 @@ func NewSnapshotCheckerService(
 	snapshotManager ports.SnapshotManager,
 	downloadProgress ports.DownloadProgress,
 	testProgress ports.TestProgress,
+	blockNumber ports.BlockNumber,
 	config domain.SnapshotCheckerConfig,
 ) *SnapshotCheckerService {
 	return &SnapshotCheckerService{
 		snapshotManager:  snapshotManager,
 		downloadProgress: downloadProgress,
 		testProgress:     testProgress,
+		blockNumber:      blockNumber,
 		config:           config,
 	}
 }
@@ -119,11 +122,11 @@ func (s *SnapshotCheckerService) checkAndUpdateClient(ctx context.Context, clien
 	if err != nil {
 		return fmt.Errorf("failed to get latest block number: %w", err)
 	}
-	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Latest available snapshot: block %s", client.ShortName, latestBlockNumber)
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Latest available snapshot block: %s", client.ShortName, latestBlockNumber)
 
-	// Check if we need to download
-	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Checking if snapshot download is needed...", client.ShortName)
-	needsDownload, err := s.snapshotManager.NeedsSnapshotDownload(ctx, client, latestBlockNumber)
+	// Check if we need to download by reading current block number
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Checking current snapshot block number...", client.ShortName)
+	needsDownload, err := s.checkNeedsSnapshotDownload(ctx, client, latestBlockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to check if snapshot needed: %w", err)
 	}
@@ -161,10 +164,56 @@ func (s *SnapshotCheckerService) checkAndUpdateClient(ctx context.Context, clien
 		return fmt.Errorf("failed to download and mount snapshot: %w", err)
 	}
 
+	// Write block number file after successful download
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Writing snapshot block number: %s", client.ShortName, latestBlockNumber)
+	if err := s.blockNumber.WriteBlockNumber(ctx, latestBlockNumber); err != nil {
+		return fmt.Errorf("failed to write block number: %w", err)
+	}
+
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] ✓ Snapshot download completed successfully", client.ShortName)
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Total time: %s", client.ShortName, elapsed.Round(time.Second))
 
 	return nil
+}
+
+// checkNeedsSnapshotDownload determines if a snapshot needs to be downloaded
+// by reading the current block number and comparing with the latest available
+// Logs clearly the current and latest block numbers for visibility
+func (s *SnapshotCheckerService) checkNeedsSnapshotDownload(ctx context.Context, client domain.ExecutionClientInfo, latestBlockNumber string) (bool, error) {
+	// Check if block number file exists
+	exists, err := s.blockNumber.BlockNumberExists(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if block number exists: %w", err)
+	}
+
+	if !exists {
+		logger.InfoWithPrefix(snapshotLogPrefix, "[%s] No snapshot block number file found - download required", client.ShortName)
+		return true, nil
+	}
+
+	// Read current block number
+	currentBlockNumber, err := s.blockNumber.ReadBlockNumber(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to read current block number: %w", err)
+	}
+
+	// Log both block numbers clearly
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Current snapshot block: %s", client.ShortName, currentBlockNumber)
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Latest available block: %s", client.ShortName, latestBlockNumber)
+
+	// Check if newer snapshot is available
+	isNewer, err := s.blockNumber.IsNewerSnapshot(ctx, latestBlockNumber)
+	if err != nil {
+		return false, fmt.Errorf("failed to compare block numbers: %w", err)
+	}
+
+	if isNewer {
+		logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Newer snapshot available (%s > %s) - download required", client.ShortName, latestBlockNumber, currentBlockNumber)
+	} else {
+		logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Current snapshot is up to date (current: %s, latest: %s)", client.ShortName, currentBlockNumber, latestBlockNumber)
+	}
+
+	return isNewer, nil
 }
 
 // StopAllDownloads stops all running download containers (for graceful shutdown)

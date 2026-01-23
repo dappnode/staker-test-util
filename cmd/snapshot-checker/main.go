@@ -68,7 +68,6 @@ func main() {
 	snapshotManagerAdapter := snapshotmanager.NewSnapshotManagerAdapter(
 		snapshotsAdapter,
 		dockerAdapter,
-		blockNumberAdapter,
 	)
 
 	// Clear any stale download marker on startup
@@ -86,6 +85,7 @@ func main() {
 		snapshotManagerAdapter,
 		downloadAdapter,
 		testAdapter,
+		blockNumberAdapter,
 		snapshotConfig,
 	)
 
