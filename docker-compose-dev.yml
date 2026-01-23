@@ -28,6 +28,8 @@ services:
       - LOG_LEVEL=DEBUG
       - IPFS_GATEWAY_URL=http://ipfs.dappnode:8080
       - IPFS_HASH=QmSfPFSauovbMzEcvf2a2csoHtfqpViShwEYpuX3fPR8zv
+      - EXECUTION_CLIENT=${EXECUTION_CLIENT:-geth}
+      - CONSENSUS_CLIENT=${CONSENSUS_CLIENT:-nimbus}
       # GitHub integration (optional - for PR commenting)
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-}
