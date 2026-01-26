@@ -15,6 +15,7 @@ import (
 	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/application/domain"
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -72,6 +73,9 @@ func (t *CompositeAdapter) ExecuteTest(ctx context.Context, stakerConfig domain.
 
 	// Set the final result
 	t.report.SetResult(testErr == nil, testErr)
+
+	// Print the report to the console
+	fmt.Println(t.report.ToConsoleString())
 
 	// Comment on PR if GitHub integration is enabled (ignore errors - don't fail test for PR comment issues)
 	_ = t.github.CommentOnPR(ctx, t.report)
