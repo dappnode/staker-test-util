@@ -8,16 +8,19 @@ import (
 )
 
 type StakerConfig struct {
-	ExecutionDnpName       string   `json:"executionDnpName"`
-	ConsensusDnpName       string   `json:"consensusDnpName"`
-	Web3SignerDnpName      string   `json:"web3signerDnpName"`
-	MevBoostDnpName        string   `json:"mevBoostDnpName"`
-	Relays                 []string `json:"relays,omitempty"` // Optional, can be empty
-	Network                string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
-	Urls                   Urls
-	ExecutionContainerName string // The name of the container to mount the NFS volume to
-	ExecutionVolumeName    string // The name of the volume to mount for execution client data
-	DataBackendName        string // The name of the backend to use for data requests
+	ExecutionDnpName          string   `json:"executionDnpName"`
+	ConsensusDnpName          string   `json:"consensusDnpName"`
+	Web3SignerDnpName         string   `json:"web3signerDnpName"`
+	MevBoostDnpName           string   `json:"mevBoostDnpName"`
+	Relays                    []string `json:"relays,omitempty"` // Optional, can be empty
+	Network                   string   `json:"network"`          // The network this config is for (e.g., mainnet, gnosis, hoodi, lukso)
+	Urls                      Urls
+	BrainContainerName        string // The name of the brain container
+	SignerContainerName       string // The name of the web3signer container
+	BeaconchainContainerName  string // The name of the beaconchain container
+	ValidatorContainerName    string // The name of the validator container
+	ExecutionContainerName    string // The name of the container to mount the NFS volume to
+	ExecutionVolumeTargetPath string // Path to the execution client's docker volume data
 }
 
 type Urls struct {
@@ -27,112 +30,152 @@ type Urls struct {
 	DappmanagerURL string
 }
 
-func StakerConfigForNetwork(pkg Pkg) StakerConfig {
-	network := getNetworkFromDnpName(pkg.DnpName)
-	var execClients, consClients []string
-	var web3signer, mevboost string
-	var relays []string = nil
-	var urls Urls
+// ClientOverrides holds optional client override settings
+type ClientOverrides struct {
+	ExecutionClient string // Short name like "geth", "reth", etc.
+	ConsensusClient string // Short name like "prysm", "teku", etc.
+}
 
-	switch network {
-	case "gnosis":
-		execClients = []string{"nethermind-xdai.dnp.dappnode.eth", "gnosis-erigon.dnp.dappnode.eth"}
-		consClients = []string{"lighthouse-gnosis.dnp.dappnode.eth", "teku-gnosis.dnp.dappnode.eth", "nimbus-gnosis.dnp.dappnode.eth", "lodestar-gnosis.dnp.dappnode.eth"}
-		web3signer = "web3signer-hoodi.dnp.dappnode.eth"
-		mevboost = "mev-boost-hoodi.dnp.dappnode.eth"
-		relays = []string{}
-		urls = Urls{
-			ExecutionURL:   "http://execution.gnosis.dncore.dappnode:8545",
-			BrainURL:       "http://brain.web3signer-gnosis.dappnode:5000",
-			BeaconchainURL: "http://beacon-chain.gnosis.dncore.dappnode:3500",
-			DappmanagerURL: "http://dappmanager.dappnode:7000",
-		}
-	case "mainnet":
-		execClients = []string{"nethermind.public.dappnode.eth", "geth.dnp.dappnode.eth", "erigon.dnp.dappnode.eth", "reth.dnp.dappnode.eth", "besu.public.dappnode.eth"}
-		consClients = []string{"lighthouse.dnp.dappnode.eth", "prysm.dnp.dappnode.eth", "lodestar.dnp.dappnode.eth", "nimbus.dnp.dappnode.eth", "teku.dnp.dappnode.eth"}
-		web3signer = "web3signer.dnp.dappnode.eth"
-		mevboost = "mev-boost.dnp.dappnode.eth"
-		relays = []string{}
-		urls = Urls{
-			ExecutionURL:   "http://execution.mainnet.dncore.dappnode:8545",
-			BrainURL:       "http://brain.web3signer.dappnode:5000",
-			BeaconchainURL: "http://beacon-chain.mainnet.dncore.dappnode:3500",
-			DappmanagerURL: "http://dappmanager.dappnode:7000",
-		}
-	case "lukso":
-		execClients = []string{"lukso-geth.dnp.dappnode.eth"}
-		consClients = []string{"prysm-lukso.dnp.dappnode.eth", "teku-luks.dnp.dappnode.eth"}
-		web3signer = "web3signer-lukso.dnp.dappnode.eth"
-		mevboost = "mev-boost-lukso.dnp.dappnode.eth"
-		relays = []string{}
-		urls = Urls{
-			ExecutionURL:   "http://execution.lukso.dncore.dappnode:8545",
-			BrainURL:       "http://brain.web3signer-lukso.dappnode:5000",
-			BeaconchainURL: "http://beacon-chain.lukso.dncore.dappnode:3500",
-			DappmanagerURL: "http://dappmanager.dappnode:7000",
-		}
-	case "hoodi":
-		execClients = []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
-		consClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth", "lighthouse-hoodi.dnp.dappnode.eth"}
-		web3signer = "web3signer-hoodi.dnp.dappnode.eth"
-		mevboost = "mev-boost-hoodi.dnp.dappnode.eth"
-		relays = []string{}
-		urls = Urls{
-			ExecutionURL:   "http://execution.hoodi.dncore.dappnode:8545",
-			BrainURL:       "http://brain.web3signer-hoodi.dappnode:5000",
-			BeaconchainURL: "http://beacon-chain.hoodi.dncore.dappnode:3500",
-			DappmanagerURL: "http://dappmanager.dappnode:8080",
-		}
+// ClientOverrideResult holds the result of applying overrides with any warnings
+type ClientOverrideResult struct {
+	ExecutionDnpName string
+	ConsensusDnpName string
+	Warnings         []string
+}
+
+const dappmanagerURL = "http://dappmanager.dappnode:7000"
+
+// hoodi network client lists
+var (
+	hoodiExecClients = []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
+	hoodiConsClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth"}
+)
+
+func StakerConfigForNetwork(pkg Pkg, overrides ClientOverrides) (StakerConfig, []string) {
+	// Only hoodi network is supported
+	network := "hoodi"
+	web3signer := "web3signer-hoodi.dnp.dappnode.eth"
+	mevboost := "mev-boost-hoodi.dnp.dappnode.eth"
+	relays := []string{}
+	urls := Urls{
+		ExecutionURL:   "http://execution.hoodi.dncore.dappnode:8545",
+		BrainURL:       "http://brain.web3signer-hoodi.dappnode:5000",
+		BeaconchainURL: "http://beacon-chain.hoodi.dncore.dappnode:3500",
+		DappmanagerURL: dappmanagerURL,
 	}
 
-	exec := matchOrRandom(pkg.DnpName, execClients)
-	cons := matchOrRandom(pkg.DnpName, consClients)
+	// Resolve execution and consensus clients with override logic
+	result := resolveClientsWithOverrides(pkg, overrides, hoodiExecClients, hoodiConsClients)
 
-	// List of known execution client short names
-	clientShortNames := []string{"geth", "nethermind", "erigon", "reth", "besu"}
-	execShort := "unknown"
-	for _, short := range clientShortNames {
-		if strings.Contains(exec, short) {
-			execShort = short
-			break
-		}
-	}
-	dataBackend := execShort + "-" + network
+	ecDnpName := result.ExecutionDnpName
+	ccDnpName := result.ConsensusDnpName
+
+	serviceName := serviceNameFromExecutionClient(ecDnpName, network)
+	volumeName := getExecutionVolumeName(ecDnpName, serviceName)
 
 	return StakerConfig{
-		ExecutionDnpName:       exec,
-		ConsensusDnpName:       cons,
-		Web3SignerDnpName:      web3signer,
-		MevBoostDnpName:        mevboost,
-		Relays:                 relays,
-		Network:                network,
-		Urls:                   urls,
-		ExecutionContainerName: executionContainerName(pkg.ServiceName, pkg.DnpName),
-		ExecutionVolumeName:    composeVolumeName(pkg.DnpName, pkg.ComposeVolumeName),
-		DataBackendName:        dataBackend,
-	}
+		ExecutionDnpName:          ecDnpName,
+		ConsensusDnpName:          ccDnpName,
+		Web3SignerDnpName:         web3signer,
+		MevBoostDnpName:           mevboost,
+		Relays:                    relays,
+		Network:                   network,
+		Urls:                      urls,
+		BrainContainerName:        containerName("brain", web3signer),
+		SignerContainerName:       containerName("web3signer", web3signer),
+		BeaconchainContainerName:  containerName("beacon-chain", ccDnpName),
+		ValidatorContainerName:    containerName("validator", ccDnpName),
+		ExecutionContainerName:    containerName(serviceName, ecDnpName),
+		ExecutionVolumeTargetPath: fmt.Sprintf("/var/lib/docker/volumes/%s/_data", volumeName),
+	}, result.Warnings
 }
 
-func getNetworkFromDnpName(dnpName string) string {
-	name := strings.ToLower(dnpName)
-	switch {
-	case strings.Contains(name, "gnosis"):
-		return "gnosis"
-	case strings.Contains(name, "hoodi"):
-		return "hoodi"
-	case strings.Contains(name, "lukso"):
-		return "lukso"
-	default:
-		return "mainnet"
+// resolveClientsWithOverrides determines execution and consensus clients based on:
+// 1. If pkg matches an execution/consensus client, use it (overriding any flag/env with warning)
+// 2. Otherwise, use the override if provided
+// 3. Otherwise, pick a random client
+func resolveClientsWithOverrides(pkg Pkg, overrides ClientOverrides, execClients, consClients []string) ClientOverrideResult {
+	result := ClientOverrideResult{}
+
+	// Check if pkg is an execution client
+	pkgMatchedExec := matchClient(pkg.DnpName, execClients)
+	// Check if pkg is a consensus client
+	pkgMatchedCons := matchClient(pkg.DnpName, consClients)
+
+	// Resolve execution client
+	if pkgMatchedExec != "" {
+		// Pkg is an execution client - use it
+		if overrides.ExecutionClient != "" {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Package '%s' is an execution client; ignoring --execution-client flag '%s'",
+					pkg.DnpName, overrides.ExecutionClient))
+		}
+		result.ExecutionDnpName = pkgMatchedExec
+	} else if overrides.ExecutionClient != "" {
+		// Use override if provided
+		matched := matchClientByShortName(overrides.ExecutionClient, execClients)
+		if matched != "" {
+			result.ExecutionDnpName = matched
+		} else {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Unknown execution client '%s'; using random", overrides.ExecutionClient))
+			result.ExecutionDnpName = randomClient(execClients)
+		}
+	} else {
+		// Pick random
+		result.ExecutionDnpName = randomClient(execClients)
 	}
+
+	// Resolve consensus client
+	if pkgMatchedCons != "" {
+		// Pkg is a consensus client - use it
+		if overrides.ConsensusClient != "" {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Package '%s' is a consensus client; ignoring --consensus-client flag '%s'",
+					pkg.DnpName, overrides.ConsensusClient))
+		}
+		result.ConsensusDnpName = pkgMatchedCons
+	} else if overrides.ConsensusClient != "" {
+		// Use override if provided
+		matched := matchClientByShortName(overrides.ConsensusClient, consClients)
+		if matched != "" {
+			result.ConsensusDnpName = matched
+		} else {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Unknown consensus client '%s'; using random", overrides.ConsensusClient))
+			result.ConsensusDnpName = randomClient(consClients)
+		}
+	} else {
+		// Pick random
+		result.ConsensusDnpName = randomClient(consClients)
+	}
+
+	return result
 }
 
-func matchOrRandom(dnpName string, candidates []string) string {
+// matchClient returns the matching client dnpName if found, empty string otherwise
+func matchClient(dnpName string, candidates []string) string {
 	for _, c := range candidates {
-		if strings.Contains(dnpName, c) {
+		if strings.Contains(dnpName, c) || strings.Contains(c, dnpName) {
 			return c
 		}
 	}
+	return ""
+}
+
+// matchClientByShortName matches a short name (e.g., "geth", "prysm") to a full dnpName
+func matchClientByShortName(shortName string, candidates []string) string {
+	shortName = strings.ToLower(shortName)
+	for _, c := range candidates {
+		if strings.Contains(strings.ToLower(c), shortName) {
+			return c
+		}
+	}
+	return ""
+}
+
+// randomClient picks a random client from the list
+func randomClient(candidates []string) string {
 	if len(candidates) == 0 {
 		return ""
 	}
@@ -140,18 +183,14 @@ func matchOrRandom(dnpName string, candidates []string) string {
 	return candidates[r.Intn(len(candidates))]
 }
 
-// Utility to get the short dnp name (strip .dnp.dappnode.eth)
-func shortDnpName(dnpName string) string {
-	return strings.TrimSuffix(dnpName, ".dnp.dappnode.eth")
-}
-
-// Utility to get the execution container name from service and dnpName
-func executionContainerName(serviceName, dnpName string) string {
-	return fmt.Sprintf("DAppNodePackage-%s.%s.dnp.dappnode.eth", serviceName, shortDnpName(dnpName))
-}
-
-// Utility to get the docker volume name from dnpName and compose volume name
-// i.e hoodi-nethermind.dnp.dappnode.eth -> hoodi-netherminddnpdappnodeeth_<composeVolumeName>
-func composeVolumeName(dnpName, composeVolumeName string) string {
-	return fmt.Sprintf("%s_%s", strings.ReplaceAll(dnpName, ".", ""), composeVolumeName)
+// getExecutionVolumeName returns the docker volume name for the execution client
+// reth and geth use their service name as volume name, others use "data"
+func getExecutionVolumeName(dnpName, serviceName string) string {
+	var volumeArg string
+	if serviceName == "geth" || serviceName == "reth" {
+		volumeArg = serviceName
+	} else {
+		volumeArg = "data"
+	}
+	return composeVolumeName(dnpName, volumeArg)
 }

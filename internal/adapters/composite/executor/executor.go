@@ -8,6 +8,7 @@ import (
 	"clients-test/internal/adapters/apis/beaconchain"
 	"clients-test/internal/adapters/apis/brain"
 	"clients-test/internal/adapters/apis/execution"
+	"clients-test/internal/application/domain"
 )
 
 type ExecutorAdapter struct {
@@ -24,11 +25,23 @@ func NewExecutorAdapter(execution *execution.ExecutionAdapter, brain *brain.Brai
 	}
 }
 
+// timeOperation measures the duration of an operation and records it in the report
+func timeOperation(report *domain.TestReport, operationName string, fn func() error) error {
+	start := time.Now()
+	err := fn()
+	duration := time.Since(start)
+
+	success := err == nil
+	report.AddExecuteTiming(operationName, duration, success, err)
+
+	return err
+}
+
 // waitForExecutionSync waits until the execution client is synced or times out,
 // returning only after maxTries with the most recent error (if any).
 func (t *ExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 	const (
-		maxTries = 60
+		maxTries = 180
 		sleepDur = 6 * time.Second
 	)
 	var lastErr error
@@ -162,15 +175,25 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 }
 
 // ExecuteTest runs both sync and liveness checks in sequence
-func (t *ExecutorAdapter) ExecuteTest(ctx context.Context) error {
-	if err := t.waitForBeaconchainSync(ctx); err != nil {
+// All operations are timed and recorded in the report.
+func (t *ExecutorAdapter) ExecuteTest(ctx context.Context, report *domain.TestReport) error {
+	if err := timeOperation(report, "WaitForBeaconchainSync", func() error {
+		return t.waitForBeaconchainSync(ctx)
+	}); err != nil {
 		return err
 	}
-	if err := t.waitForExecutionSync(ctx); err != nil {
+
+	if err := timeOperation(report, "WaitForExecutionSync", func() error {
+		return t.waitForExecutionSync(ctx)
+	}); err != nil {
 		return err
 	}
-	if err := t.waitForValidatorLiveness(ctx); err != nil {
+
+	if err := timeOperation(report, "WaitForValidatorLiveness", func() error {
+		return t.waitForValidatorLiveness(ctx)
+	}); err != nil {
 		return err
 	}
+
 	return nil
 }

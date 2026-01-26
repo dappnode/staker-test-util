@@ -1,0 +1,75 @@
+# Example: Complete CI workflow for DAppNode staker packages
+#
+# This workflow:
+# 1. Builds your package
+# 2. Publishes to IPFS
+# 3. Ensures snapshot is available
+# 4. Runs staker tests
+#
+# Copy and adapt for your package repository.
+
+name: Complete Staker CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      ipfs_hash: ${{ steps.publish.outputs.ipfs_hash }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build DAppNode Package
+        run: |
+          # Your build steps here
+          # npx @dappnode/dappnodesdk build
+          echo "Building package..."
+
+      - name: Publish to IPFS
+        id: publish
+        run: |
+          # Your IPFS publish steps here
+          # This should output the IPFS hash
+          echo "ipfs_hash=QmYourIPFSHash" >> $GITHUB_OUTPUT
+
+  ensure-snapshot:
+    runs-on: self-hosted
+    needs: build
+    steps:
+      - name: Ensure Snapshot Available
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+            -e EXECUTION_CLIENT=geth \
+            -e NETWORK=hoodi \
+            -e RUN_ONCE=true \
+            ghcr.io/dappnode/staker-test-util/snapshot-checker:latest
+
+  test:
+    runs-on: self-hosted
+    needs: [build, ensure-snapshot]
+    steps:
+      - name: Run Staker Tests
+        run: |
+          docker run --rm \
+            --network dncore_network \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+            -e IPFS_GATEWAY_URL=http://ipfs.dappnode:8080 \
+            -e IPFS_HASH=${{ needs.build.outputs.ipfs_hash }} \
+            -e EXECUTION_CLIENT=geth \
+            -e CONSENSUS_CLIENT=nimbus \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            -e GITHUB_REPOSITORY=${{ github.repository }} \
+            -e GITHUB_PR_NUMBER=${{ github.event.pull_request.number }} \
+            -e GITHUB_RUN_ID=${{ github.run_id }} \
+            ghcr.io/dappnode/staker-test-util/test-runner:latest

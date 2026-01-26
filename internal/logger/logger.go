@@ -50,7 +50,7 @@ func parseLogLevelFromEnv() LogLevel {
 	case "FATAL":
 		return FATAL
 	default:
-		return INFO // Default to INFO if LOG_LEVEL is not set or invalid
+		return DEBUG // Default to DEBUG if LOG_LEVEL is not set or invalid
 	}
 }
 

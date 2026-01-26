@@ -1,0 +1,45 @@
+services:
+  snapshot-checker:
+    build:
+      context: .
+      dockerfile: Dockerfile.snapshot-checker
+    container_name: snapshot-checker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    environment:
+      - LOG_LEVEL=DEBUG
+      - EXECUTION_CLIENT=${EXECUTION_CLIENT:-geth}
+      - NETWORK=${NETWORK:-hoodi}
+      - CRON_INTERVAL_SEC=${CRON_INTERVAL_SEC:-21600}
+      - RUN_ONCE=${RUN_ONCE:-true}
+    networks:
+      - dncore_network
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test-runner
+    container_name: test-runner
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    environment:
+      - LOG_LEVEL=DEBUG
+      - IPFS_GATEWAY_URL=http://ipfs.dappnode:8080
+      - IPFS_HASH=QmSfPFSauovbMzEcvf2a2csoHtfqpViShwEYpuX3fPR8zv
+      - EXECUTION_CLIENT=${EXECUTION_CLIENT:-geth}
+      - CONSENSUS_CLIENT=${CONSENSUS_CLIENT:-nimbus}
+      # GitHub integration (optional - for PR commenting)
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-}
+      - GITHUB_PR_NUMBER=${GITHUB_PR_NUMBER:-}
+      - GITHUB_RUN_ID=${GITHUB_RUN_ID:-}
+      - GITHUB_SERVER_URL=${GITHUB_SERVER_URL:-https://github.com}
+    # command: ["--ipfs-gateway-url", "${IPFS_GATEWAY_URL}", "--ipfs-hash", "${IPFS_HASH}"]
+    networks:
+      - dncore_network
+
+networks:
+  dncore_network:
+    external: true
