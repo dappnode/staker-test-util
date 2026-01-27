@@ -57,3 +57,8 @@ func (s *SnapshotManagerAdapter) StopDownload(ctx context.Context, clientShortNa
 	containerName := fmt.Sprintf("%s%s", downloadContainerPrefix, clientShortName)
 	_ = s.docker.StopContainerWithTimeout(ctx, containerName, 5)
 }
+
+// ClearExecutionClientData removes existing data for the execution client
+func (s *SnapshotManagerAdapter) ClearExecutionClientData(ctx context.Context, client domain.ExecutionClientInfo) error {
+	return s.docker.RemoveVolumeData(ctx, client.VolumeName)
+}
