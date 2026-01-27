@@ -15,13 +15,6 @@ type DownloadAdapter struct {
 	basePath string
 }
 
-// NewDownloadAdapter creates a new ProgressAdapter
-func NewDownloadAdapter() *DownloadAdapter {
-	return &DownloadAdapter{
-		basePath: domain.SnapshotProgressPath,
-	}
-}
-
 // NewDownloadAdapterWithPath creates a new DownloadAdapter with a custom base path (for testing)
 func NewDownloadAdapterWithPath(basePath string) *DownloadAdapter {
 	return &DownloadAdapter{

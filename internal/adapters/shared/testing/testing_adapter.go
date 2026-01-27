@@ -15,13 +15,6 @@ type TestAdapter struct {
 	basePath string
 }
 
-// NewTestAdapter creates a new TestAdapter
-func NewTestAdapter() *TestAdapter {
-	return &TestAdapter{
-		basePath: domain.SnapshotProgressPath,
-	}
-}
-
 // NewTestAdapterWithPath creates a new TestAdapter with a custom base path (for testing)
 func NewTestAdapterWithPath(basePath string) *TestAdapter {
 	return &TestAdapter{

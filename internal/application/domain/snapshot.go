@@ -23,9 +23,6 @@ type SnapshotCheckerConfig struct {
 // ValidExecutionClients contains all valid execution client short names for hoodi
 var ValidExecutionClients = []string{"geth", "nethermind", "reth", "besu", "erigon"}
 
-// SnapshotProgressPath is the directory for progress files
-const SnapshotProgressPath = "/usr/src/dappnode/DNCORE"
-
 // ProgressFileName is the name of the download in progress file
 const ProgressFileName = ".download_in_progress"
 
@@ -34,6 +31,9 @@ const TestProgressFileName = ".test_in_progress"
 
 // SnapshotBlockNumberFileName returns the snapshot block number file name
 const SnapshotBlockNumberFileName = "snapshot_block_number"
+
+// SnapshotVersionFileName is the name of the snapshot version file
+const SnapshotVersionFileName = "_snapshot_web3_clientVersion.json"
 
 // GetExecutionClient returns the execution client info for a specific client on hoodi network
 func GetExecutionClient(network string, clientName string) (ExecutionClientInfo, bool) {

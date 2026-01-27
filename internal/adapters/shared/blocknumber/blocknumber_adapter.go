@@ -16,13 +16,6 @@ type BlockNumberAdapter struct {
 	basePath string
 }
 
-// NewBlockNumberAdapter creates a new BlockNumberAdapter with default path
-func NewBlockNumberAdapter() *BlockNumberAdapter {
-	return &BlockNumberAdapter{
-		basePath: domain.SnapshotProgressPath,
-	}
-}
-
 // NewBlockNumberAdapterWithPath creates a new BlockNumberAdapter with a custom base path
 func NewBlockNumberAdapterWithPath(basePath string) *BlockNumberAdapter {
 	return &BlockNumberAdapter{

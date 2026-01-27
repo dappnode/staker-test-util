@@ -13,6 +13,7 @@ import (
 	"clients-test/internal/adapters/composite/testmanager/ensurer"
 	"clients-test/internal/adapters/composite/testmanager/executor"
 	"clients-test/internal/adapters/shared/blocknumber"
+	"clients-test/internal/adapters/shared/snapshotversion"
 	"clients-test/internal/application/domain"
 	"context"
 	"fmt"
@@ -38,8 +39,9 @@ func NewTestManagerAdapter(
 	ipfsAdapter *ipfs.IPFSAdapter,
 	githubAdapter *github.GitHubAdapter,
 	blockNumberAdapter *blocknumber.BlockNumberAdapter,
+	snapshotVersionAdapter *snapshotversion.Adapter,
 ) *TestManagerAdapter {
-	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, snapshotsAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter, blockNumberAdapter)
+	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, snapshotsAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter, blockNumberAdapter, snapshotVersionAdapter)
 	executor := executor.NewExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
 	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, brainAdapter, beaconchainAdapter, dockerAdapter)
 	return &TestManagerAdapter{

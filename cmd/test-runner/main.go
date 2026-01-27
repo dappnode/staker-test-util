@@ -12,6 +12,7 @@ import (
 	"clients-test/internal/adapters/composite/testmanager"
 	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/adapters/shared/download"
+	"clients-test/internal/adapters/shared/snapshotversion"
 	"clients-test/internal/adapters/shared/testing"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
@@ -81,6 +82,7 @@ func main() {
 	downloadAdapter := download.NewDownloadAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 	testAdapter := testing.NewTestAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 	blockAdapter := blocknumber.NewBlockNumberAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
+	snapshotAdapter := snapshotversion.NewAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 
 	// Log GitHub configuration status
 	if githubAdapter.IsEnabled() {
@@ -100,6 +102,7 @@ func main() {
 		ipfsAdapter,
 		githubAdapter,
 		blockAdapter,
+		snapshotAdapter,
 	)
 
 	// Ctrl+C handler: call CleanEnvironment on testManager
