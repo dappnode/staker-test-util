@@ -16,4 +16,7 @@ type SnapshotManager interface {
 
 	// StopDownload stops the snapshot download container for a specific client
 	StopDownload(ctx context.Context, clientShortName string)
+
+	// ClearExecutionClientData removes existing data for the execution client
+	ClearExecutionClientData(ctx context.Context, client domain.ExecutionClientInfo) error
 }

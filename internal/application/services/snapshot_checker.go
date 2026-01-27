@@ -126,6 +126,12 @@ func (s *SnapshotCheckerService) checkAndUpdateSnapshot(ctx context.Context) err
 
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Snapshot download needed", client.ShortName)
 
+	// Remove ec volume data before downloading new snapshot
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Removing existing volume data before snapshot download...", client.ShortName)
+	if err := s.snapshotManager.ClearExecutionClientData(ctx, client); err != nil {
+		return fmt.Errorf("failed to clear execution client data: %w", err)
+	}
+
 	// Set download in progress for this client
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Setting download in progress marker...", client.ShortName)
 	if err := s.downloadProgress.SetDownloadInProgress(ctx); err != nil {

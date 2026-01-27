@@ -321,3 +321,27 @@ func (d *DockerAdapter) ensureImage(ctx context.Context, imageName string) error
 
 	return nil
 }
+
+// RemoveVolumeData removes all data from a Docker volume by deleting its contents
+func (d *DockerAdapter) RemoveVolumeData(ctx context.Context, volumeTargetPath string) error {
+	// remove all files in the volume target path
+	dirEntries, err := os.ReadDir(volumeTargetPath)
+	if err != nil {
+		return fmt.Errorf("failed to read volume directory: %w", err)
+	}
+
+	for _, entry := range dirEntries {
+		entryPath := fmt.Sprintf("%s/%s", volumeTargetPath, entry.Name())
+		if entry.IsDir() {
+			if err := os.RemoveAll(entryPath); err != nil {
+				return fmt.Errorf("failed to remove directory %s: %w", entryPath, err)
+			}
+		} else {
+			if err := os.Remove(entryPath); err != nil {
+				return fmt.Errorf("failed to remove file %s: %w", entryPath, err)
+			}
+		}
+	}
+
+	return nil
+}
