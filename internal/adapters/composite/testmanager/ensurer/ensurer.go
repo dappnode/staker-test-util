@@ -15,6 +15,7 @@ import (
 	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/application/domain"
+	"clients-test/internal/logger"
 )
 
 type EnsurerAdapter struct {
@@ -79,11 +80,11 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 
 	// Capture client version BEFORE install (if client is already running)
 	if isExecutionTest {
-		if version, err := e.Execution.GetClientVersion(ctx); err == nil {
+		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "before install"); err == nil {
 			report.ExecutionClientVersionBefore = version
 		}
 	} else if isConsensusTest {
-		if version, err := e.Beaconchain.GetClientVersion(ctx); err == nil {
+		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "before install"); err == nil {
 			report.ConsensusClientVersionBefore = version
 		}
 	}
@@ -97,16 +98,32 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 
 	// Capture client version AFTER install
 	if isExecutionTest {
-		if version, err := e.Execution.GetClientVersion(ctx); err == nil {
+		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "after install"); err == nil {
 			report.ExecutionClientVersionAfter = version
 		}
 	} else if isConsensusTest {
-		if version, err := e.Beaconchain.GetClientVersion(ctx); err == nil {
+		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "after install"); err == nil {
 			report.ConsensusClientVersionAfter = version
 		}
 	}
 
 	return nil
+}
+
+// getClientVersionWithRetry tries to get the client version up to 10 times with 3s sleep between attempts
+// The API takes some time to be available after package installation, so retries help avoid transient errors
+func getClientVersionWithRetry(getVersionFunc func() (string, error), clientType string, stage string) (string, error) {
+	var version string
+	var err error
+	for i := 0; i < 10; i++ {
+		version, err = getVersionFunc()
+		if err == nil {
+			return version, nil
+		}
+		logger.Warn("Failed to get %s client version %s (attempt %d/10): %v", clientType, stage, i+1, err)
+		time.Sleep(3 * time.Second)
+	}
+	return "", err
 }
 
 // readSnapshotBlockNumber reads the snapshot block number from the execution client's volume
