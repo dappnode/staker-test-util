@@ -8,7 +8,6 @@ import (
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/github"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/adapters/composite/testmanager/cleaner"
 	"clients-test/internal/adapters/composite/testmanager/ensurer"
 	"clients-test/internal/adapters/composite/testmanager/executor"
@@ -30,18 +29,19 @@ type TestManagerAdapter struct {
 }
 
 func NewTestManagerAdapter(
-	dappManagerAdapter *dappmanager.DappManagerAdapter,
-	brainAdapter *brain.BrainAdapter,
+	stakerConfig domain.StakerConfig,
 	dockerAdapter *docker.DockerAdapter,
-	snapshotsAdapter *snapshots.SnapshotsAdapter,
-	beaconchainAdapter *beaconchain.BeaconchainAdapter,
-	executionAdapter *execution.ExecutionAdapter,
 	ipfsAdapter *ipfs.IPFSAdapter,
 	githubAdapter *github.GitHubAdapter,
-	blockNumberAdapter *blocknumber.BlockNumberAdapter,
-	snapshotVersionAdapter *snapshotversion.Adapter,
 ) *TestManagerAdapter {
-	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, snapshotsAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter, blockNumberAdapter, snapshotVersionAdapter)
+	dappManagerAdapter := dappmanager.NewDappManagerAdapter()
+	brainAdapter := brain.NewBrainAdapter(stakerConfig.Urls.BrainURL)
+	beaconchainAdapter := beaconchain.NewBeaconchainAdapter(stakerConfig.Urls.BeaconchainURL)
+	executionAdapter := execution.NewExecutionAdapter(stakerConfig.Urls.ExecutionURL)
+	blockNumberAdapter := blocknumber.NewBlockNumberAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
+	snapshotVersionAdapter := snapshotversion.NewAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
+
+	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter, blockNumberAdapter, snapshotVersionAdapter)
 	executor := executor.NewExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
 	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, brainAdapter, beaconchainAdapter, dockerAdapter)
 	return &TestManagerAdapter{

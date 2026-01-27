@@ -12,7 +12,6 @@ import (
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/adapters/shared/snapshotversion"
 	"clients-test/internal/application/domain"
@@ -23,7 +22,6 @@ type EnsurerAdapter struct {
 	DappManager     *dappmanager.DappManagerAdapter
 	Brain           *brain.BrainAdapter
 	Docker          *docker.DockerAdapter
-	Snapshots       *snapshots.SnapshotsAdapter
 	Beaconchain     *beaconchain.BeaconchainAdapter
 	Execution       *execution.ExecutionAdapter
 	Ipfs            *ipfs.IPFSAdapter
@@ -31,12 +29,11 @@ type EnsurerAdapter struct {
 	SnapshotVersion *snapshotversion.Adapter
 }
 
-func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, docker *docker.DockerAdapter, snapshotsAdapter *snapshots.SnapshotsAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter, blockNumberAdapter *blocknumber.BlockNumberAdapter, snapshotVersionAdapter *snapshotversion.Adapter) *EnsurerAdapter {
+func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, docker *docker.DockerAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter, blockNumberAdapter *blocknumber.BlockNumberAdapter, snapshotVersionAdapter *snapshotversion.Adapter) *EnsurerAdapter {
 	return &EnsurerAdapter{
 		DappManager:     dappManager,
 		Brain:           brain,
 		Docker:          docker,
-		Snapshots:       snapshotsAdapter,
 		Beaconchain:     beaconchain,
 		Execution:       execution,
 		Ipfs:            ipfs,
