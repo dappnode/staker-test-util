@@ -9,6 +9,7 @@ import (
 	"clients-test/internal/adapters/apis/brain"
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/application/domain"
+	"clients-test/internal/logger"
 )
 
 type ExecutorAdapter struct {
@@ -47,13 +48,18 @@ func (t *ExecutorAdapter) waitForExecutionSync(ctx context.Context) error {
 	var lastErr error
 
 	for i := 0; i < maxTries; i++ {
+		logger.Info("[ExecutionSync] Attempt %d/%d: Checking execution client sync status...", i+1, maxTries)
 		syncing, err := t.Execution.GetIsSyncing(ctx)
 		if err != nil {
 			// record the error, but don't bail out yet
 			lastErr = fmt.Errorf("check execution sync attempt %d failed: %w", i+1, err)
+			logger.Error("Execution sync check failed (attempt %d): %v", i+1, err)
 		} else if !syncing {
+			logger.Info("[ExecutionSync] Execution client is synced (attempt %d)", i+1)
 			// once we see “not syncing” we know the node is caught up
 			return nil
+		} else {
+			logger.Info("[ExecutionSync] Execution client still syncing (attempt %d)", i+1)
 		}
 
 		// if we're on the last try, break and return lastErr
@@ -78,11 +84,16 @@ func (t *ExecutorAdapter) waitForBeaconchainSync(ctx context.Context) error {
 	var lastErr error
 
 	for i := 0; i < maxTries; i++ {
+		logger.Info("[BeaconchainSync] Attempt %d/%d: Checking beaconchain sync status...", i+1, maxTries)
 		syncing, err := t.Beaconchain.GetIsSyncing(ctx)
 		if err != nil {
 			lastErr = fmt.Errorf("check beaconchain sync attempt %d failed: %w", i+1, err)
+			logger.Error("Beaconchain sync check failed (attempt %d): %v", i+1, err)
 		} else if !syncing {
+			logger.Info("[BeaconchainSync] Beaconchain is synced (attempt %d)", i+1)
 			return nil // synced!
+		} else {
+			logger.Info("[BeaconchainSync] Beaconchain still syncing (attempt %d)", i+1)
 		}
 
 		if i < maxTries-1 {
@@ -111,13 +122,17 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 	// First, we need pubkeys and indexes—retry these as well.
 	var pubkeys []string
 	for i := 0; i < maxSlots; i++ {
+		logger.Info("[ValidatorLiveness] Attempt %d/%d: Fetching validator pubkeys...", i+1, maxSlots)
 		var err error
 		pubkeys, err = t.Brain.GetValidatorsPubkeys(ctx)
 		if err != nil {
 			lastErr = fmt.Errorf("fetch validators attempt %d failed: %w", i+1, err)
+			logger.Error("Fetch validators pubkeys failed (attempt %d): %v", i+1, err)
 		} else if len(pubkeys) == 0 {
 			lastErr = fmt.Errorf("attempt %d: no validators loaded", i+1)
+			logger.Error("No validators loaded (attempt %d)", i+1)
 		} else {
+			logger.Info("[ValidatorLiveness] Got %d validator pubkeys (attempt %d)", len(pubkeys), i+1)
 			break
 		}
 		if i < maxSlots-1 {
@@ -130,13 +145,17 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 
 	var indexes []string
 	for i := 0; i < maxSlots; i++ {
+		logger.Info("[ValidatorLiveness] Attempt %d/%d: Fetching validator indexes...", i+1, maxSlots)
 		var err error
 		indexes, err = t.Beaconchain.GetValidatorsIndexes(ctx, pubkeys)
 		if err != nil {
 			lastErr = fmt.Errorf("get validator indexes attempt %d failed: %w", i+1, err)
+			logger.Error("Get validator indexes failed (attempt %d): %v", i+1, err)
 		} else if len(indexes) == 0 {
 			lastErr = fmt.Errorf("attempt %d: no validator indexes returned", i+1)
+			logger.Error("No validator indexes returned (attempt %d)", i+1)
 		} else {
+			logger.Info("[ValidatorLiveness] Got %d validator indexes (attempt %d)", len(indexes), i+1)
 			break
 		}
 		if i < maxSlots-1 {
@@ -149,9 +168,11 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 
 	// Now poll liveness over up to maxEpochs
 	for epoch := 0; epoch < maxSlots; epoch++ {
+		logger.Info("[ValidatorLiveness] Epoch %d/%d: Checking validator liveness...", epoch+1, maxSlots)
 		liveness, err := t.Beaconchain.GetValidatorLiveness(ctx, indexes)
 		if err != nil {
 			lastErr = fmt.Errorf("get validator liveness epoch %d failed: %w", epoch, err)
+			logger.Error("Get validator liveness failed (epoch %d): %v", epoch, err)
 		} else {
 			allLive := true
 			for _, live := range liveness {
@@ -161,9 +182,11 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 				}
 			}
 			if allLive {
+				logger.Info("[ValidatorLiveness] All validators are live at epoch %d", epoch+1)
 				return nil
 			}
 			lastErr = fmt.Errorf("epoch %d: some validators still not live", epoch)
+			logger.Error("Some validators still not live (epoch %d)", epoch)
 		}
 
 		if epoch < maxSlots-1 {
