@@ -90,7 +90,7 @@ func main() {
 	}
 
 	// Initialize the unified test adapter (now also initializes composites internally)
-	compositeAdapter := testmanager.NewTestManagerAdapter(
+	testManager := testmanager.NewTestManagerAdapter(
 		dappManagerAdapter,
 		brainAdapter,
 		dockerAdapter,
@@ -102,11 +102,11 @@ func main() {
 		blockAdapter,
 	)
 
-	// Ctrl+C handler: call CleanEnvironment on composite
+	// Ctrl+C handler: call CleanEnvironment on testManager
 	go func() {
 		sig := <-sigs
 		logger.InfoWithPrefix(logPrefix, "Received signal: %v, shutting down...", sig)
-		err := compositeAdapter.CleanEnvironment(context.Background(), stakerConfig)
+		err := testManager.CleanEnvironment(context.Background(), stakerConfig)
 		if err != nil {
 			logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", err)
 		}
@@ -118,7 +118,7 @@ func main() {
 	}()
 
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(compositeAdapter, downloadAdapter, testAdapter)
+	testRunner := services.NewTestRunner(testManager, downloadAdapter, testAdapter)
 
 	if err := testRunner.RunTest(ctx, stakerConfig, pkg); err != nil {
 		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
