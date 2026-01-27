@@ -245,8 +245,12 @@ func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) (skipped
 				skipped = append(skipped, pkg.DnpName)
 				continue
 			}
-			deleteVolumes := true
-
+			var deleteVolumes bool
+			if isExecutionPackage(pkg.DnpName) {
+				deleteVolumes = false
+			} else {
+				deleteVolumes = true
+			}
 			err := d.removePackage(ctx, pkg.DnpName, &deleteVolumes)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("failed to remove package %s: %w", pkg.DnpName, err))
@@ -255,4 +259,16 @@ func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) (skipped
 		}
 	}
 	return skipped, errors
+}
+
+// isExecutionPackage returns true if the dnpName is an execution client
+func isExecutionPackage(dnpName string) bool {
+	execs := []string{"geth", "besu", "erigon", "reth", "nethermind"}
+	lower := strings.ToLower(dnpName)
+	for _, exec := range execs {
+		if strings.Contains(lower, exec) {
+			return true
+		}
+	}
+	return false
 }
