@@ -79,14 +79,11 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	}
 
 	// Capture client version BEFORE install (if client is already running)
-	if isExecutionTest {
-		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "before install"); err == nil {
-			report.ExecutionClientVersionBefore = version
-		}
-	} else if isConsensusTest {
-		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "before install"); err == nil {
-			report.ConsensusClientVersionBefore = version
-		}
+	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "before install"); err == nil {
+		report.ExecutionClientVersionBefore = version
+	}
+	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "before install"); err == nil {
+		report.ConsensusClientVersionBefore = version
 	}
 
 	// PackageInstall
@@ -97,14 +94,11 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	}
 
 	// Capture client version AFTER install
-	if isExecutionTest {
-		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "after install"); err == nil {
-			report.ExecutionClientVersionAfter = version
-		}
-	} else if isConsensusTest {
-		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "after install"); err == nil {
-			report.ConsensusClientVersionAfter = version
-		}
+	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "after install"); err == nil {
+		report.ExecutionClientVersionAfter = version
+	}
+	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "after install"); err == nil {
+		report.ConsensusClientVersionAfter = version
 	}
 
 	return nil
