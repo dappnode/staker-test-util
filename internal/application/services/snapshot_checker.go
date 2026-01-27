@@ -6,6 +6,7 @@ import (
 	"clients-test/internal/logger"
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -190,6 +191,11 @@ func (s *SnapshotCheckerService) checkNeedsSnapshotDownload(ctx context.Context,
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Current snapshot block: %s", client.ShortName, currentBlockNumber)
 	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Latest available block: %s", client.ShortName, latestBlockNumber)
 
+	// BlockRange logic: if within range, consider up to date (before isNewerSnapshot)
+	if s.isWithinBlockRange(currentBlockNumber, latestBlockNumber, s.config.BlockRange, client.ShortName) {
+		return false, nil
+	}
+
 	// Check if newer snapshot is available
 	isNewer, err := s.blockNumber.IsNewerSnapshot(ctx, latestBlockNumber)
 	if err != nil {
@@ -203,6 +209,27 @@ func (s *SnapshotCheckerService) checkNeedsSnapshotDownload(ctx context.Context,
 	}
 
 	return isNewer, nil
+}
+
+// isWithinBlockRange checks if the difference between latest and current block is within the given range.
+// If so, logs and returns true (should skip download). Otherwise, returns false.
+func (s *SnapshotCheckerService) isWithinBlockRange(currentBlock, latestBlock string, blockRange int, clientShortName string) bool {
+	currentInt, err1 := parseBlockNumber(currentBlock)
+	latestInt, err2 := parseBlockNumber(latestBlock)
+	if err1 == nil && err2 == nil && blockRange > 0 {
+		diff := latestInt - currentInt
+		if diff >= 0 && diff <= int64(blockRange) {
+			logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Block difference (%d) is within BlockRange (%d); skipping download. Current: %d, Latest: %d", clientShortName, diff, blockRange, currentInt, latestInt)
+			return true
+		}
+	}
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Block difference is outside BlockRange; download needed. Current: %s, Latest: %s", clientShortName, currentBlock, latestBlock)
+	return false
+}
+
+// parseBlockNumber safely parses a block number string to int64
+func parseBlockNumber(s string) (int64, error) {
+	return strconv.ParseInt(s, 10, 64)
 }
 
 // StopDownload stops the current download container (for graceful shutdown)

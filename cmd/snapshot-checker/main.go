@@ -39,6 +39,7 @@ func main() {
 		ExecutionClient: executionClient,
 		CronIntervalSec: cfg.CronIntervalSec,
 		Network:         cfg.Network,
+		BlockRange:      cfg.BlockRange,
 	}
 
 	// Print configuration
@@ -118,6 +119,7 @@ func printSnapshotCheckerConfig(prefix string, sc domain.SnapshotCheckerConfig) 
 	b.WriteString("SnapshotCheckerConfig:\n")
 	b.WriteString(fmt.Sprintf("  Network: %s\n", sc.Network))
 	b.WriteString(fmt.Sprintf("  CronIntervalSec: %d\n", sc.CronIntervalSec))
+	b.WriteString(fmt.Sprintf("  BlockRange: %d\n", sc.BlockRange))
 	b.WriteString("  ExecutionClient:\n")
 	b.WriteString(fmt.Sprintf("    ShortName: %s\n", c.ShortName))
 	b.WriteString(fmt.Sprintf("    DnpName: %s\n", c.DnpName))
