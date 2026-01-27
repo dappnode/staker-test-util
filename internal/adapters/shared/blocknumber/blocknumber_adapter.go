@@ -29,7 +29,7 @@ func (b *BlockNumberAdapter) blockNumberFilePath() string {
 }
 
 // WriteBlockNumber writes the block number to the snapshot_block_number file
-func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, blockNumber string) error {
+func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, blockNumber uint64) error {
 	filePath := b.blockNumberFilePath()
 
 	// Ensure directory exists
@@ -49,7 +49,7 @@ func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, blockNumber s
 	}
 	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 
-	_, err = f.WriteString(blockNumber)
+	_, err = f.WriteString(strconv.FormatUint(blockNumber, 10))
 	if err != nil {
 		return fmt.Errorf("failed to write to block number file: %w", err)
 	}
@@ -58,31 +58,36 @@ func (b *BlockNumberAdapter) WriteBlockNumber(ctx context.Context, blockNumber s
 }
 
 // ReadBlockNumber reads the block number from the snapshot_block_number file
-// Returns empty string if file doesn't exist
-func (b *BlockNumberAdapter) ReadBlockNumber(ctx context.Context) (string, error) {
+// Returns 0 if file doesn't exist
+func (b *BlockNumberAdapter) ReadBlockNumber(ctx context.Context) (uint64, error) {
 	filePath := b.blockNumberFilePath()
 
 	f, err := os.Open(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", nil
+			return 0, nil
 		}
-		return "", fmt.Errorf("failed to open block number file: %w", err)
+		return 0, fmt.Errorf("failed to open block number file: %w", err)
 	}
 	defer f.Close()
 
 	// Acquire shared lock for reading
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_SH); err != nil {
-		return "", fmt.Errorf("failed to acquire lock on block number file: %w", err)
+		return 0, fmt.Errorf("failed to acquire lock on block number file: %w", err)
 	}
 	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read block number file: %w", err)
+		return 0, fmt.Errorf("failed to read block number file: %w", err)
 	}
 
-	blockNumber := strings.TrimSpace(string(data))
+	blockNumberStr := strings.TrimSpace(string(data))
+	blockNumber, err := strconv.ParseUint(blockNumberStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse block number: %w", err)
+	}
+
 	return blockNumber, nil
 }
 
@@ -110,37 +115,24 @@ func (b *BlockNumberAdapter) BlockNumberExists(ctx context.Context) (bool, error
 
 // CompareBlockNumbers compares two block numbers
 // Returns: -1 if a < b, 0 if a == b, 1 if a > b
-func (b *BlockNumberAdapter) CompareBlockNumbers(a, blockB string) int {
-	aInt, aErr := strconv.ParseInt(a, 10, 64)
-	bInt, bErr := strconv.ParseInt(blockB, 10, 64)
-
-	if aErr != nil || bErr != nil {
-		// Fall back to string comparison if not valid integers
-		if a < blockB {
-			return -1
-		} else if a > blockB {
-			return 1
-		}
-		return 0
-	}
-
-	if aInt < bInt {
+func (b *BlockNumberAdapter) CompareBlockNumbers(a, blockB uint64) int {
+	if a < blockB {
 		return -1
-	} else if aInt > bInt {
+	} else if a > blockB {
 		return 1
 	}
 	return 0
 }
 
 // IsNewerSnapshot checks if the latest available block number is newer than the current one
-func (b *BlockNumberAdapter) IsNewerSnapshot(ctx context.Context, latestBlockNumber string) (bool, error) {
+func (b *BlockNumberAdapter) IsNewerSnapshot(ctx context.Context, latestBlockNumber uint64) (bool, error) {
 	currentBlockNumber, err := b.ReadBlockNumber(ctx)
 	if err != nil {
 		return false, err
 	}
 
 	// If no current block number, we need to download
-	if currentBlockNumber == "" {
+	if currentBlockNumber == 0 {
 		return true, nil
 	}
 

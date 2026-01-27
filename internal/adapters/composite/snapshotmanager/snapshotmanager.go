@@ -48,7 +48,7 @@ func (s *SnapshotManagerAdapter) DownloadAndMountSnapshot(ctx context.Context, n
 }
 
 // GetLatestBlockNumber fetches the latest available block number for a client
-func (s *SnapshotManagerAdapter) GetLatestBlockNumber(ctx context.Context, network, client string) (string, error) {
+func (s *SnapshotManagerAdapter) GetLatestBlockNumber(ctx context.Context, network, client string) (uint64, error) {
 	return s.snapshots.GetLatestBlockNumber(ctx, network, client)
 }
 
