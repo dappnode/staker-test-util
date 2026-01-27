@@ -166,13 +166,13 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 		return lastErr
 	}
 
-	// Now poll liveness over up to maxEpochs
-	for epoch := 0; epoch < maxSlots; epoch++ {
-		logger.Info("[ValidatorLiveness] Epoch %d/%d: Checking validator liveness...", epoch+1, maxSlots)
+	// Now poll liveness over up to maxSlots
+	for slot := 0; slot < maxSlots; slot++ {
+		logger.Info("[ValidatorLiveness] Slot %d/%d: Checking validator liveness...", slot+1, maxSlots)
 		liveness, err := t.Beaconchain.GetValidatorLiveness(ctx, indexes)
 		if err != nil {
-			lastErr = fmt.Errorf("get validator liveness epoch %d failed: %w", epoch, err)
-			logger.Error("Get validator liveness failed (epoch %d): %v", epoch, err)
+			lastErr = fmt.Errorf("get validator liveness slot %d failed: %w", slot, err)
+			logger.Error("Get validator liveness failed (slot %d): %v", slot, err)
 		} else {
 			allLive := true
 			for _, live := range liveness {
@@ -182,14 +182,14 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 				}
 			}
 			if allLive {
-				logger.Info("[ValidatorLiveness] All validators are live at epoch %d", epoch+1)
+				logger.Info("[ValidatorLiveness] All validators are live at slot %d", slot+1)
 				return nil
 			}
-			lastErr = fmt.Errorf("epoch %d: some validators still not live", epoch)
-			logger.Error("Some validators still not live (epoch %d)", epoch)
+			lastErr = fmt.Errorf("slot %d: some validators still not live", slot)
+			logger.Error("Some validators still not live (slot %d)", slot)
 		}
 
-		if epoch < maxSlots-1 {
+		if slot < maxSlots-1 {
 			time.Sleep(slotDuration)
 		}
 	}
