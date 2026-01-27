@@ -241,7 +241,7 @@ func (d *DappManagerAdapter) RemoveNonCorePackages(ctx context.Context) (skipped
 	for _, pkg := range packages {
 		if !pkg.IsCore {
 			// skip if pkg.DnpName includes web3signer or mev-boost
-			if strings.Contains(pkg.DnpName, "web3signer") || strings.Contains(pkg.DnpName, "mev-boost") {
+			if strings.Contains(pkg.DnpName, "web3signer") || strings.Contains(pkg.DnpName, "mev-boost") || strings.Contains(pkg.DnpName, "dms") {
 				skipped = append(skipped, pkg.DnpName)
 				continue
 			}
