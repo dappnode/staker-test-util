@@ -14,6 +14,7 @@ import (
 	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/adapters/shared/snapshotversion"
 	"clients-test/internal/application/domain"
+	"clients-test/internal/logger"
 	"context"
 	"fmt"
 	"time"
@@ -80,7 +81,10 @@ func (t *TestManagerAdapter) ExecuteTest(ctx context.Context, stakerConfig domai
 	fmt.Println(t.report.ToConsoleString())
 
 	// Comment on PR if GitHub integration is enabled (ignore errors - don't fail test for PR comment issues)
-	_ = t.github.CommentOnPR(ctx, t.report)
+	err := t.github.CommentOnPR(ctx, t.report)
+	if err != nil {
+		logger.Error("Failed to comment on PR: %v", err)
+	}
 
 	return testErr
 }
