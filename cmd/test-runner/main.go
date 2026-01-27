@@ -9,7 +9,7 @@ import (
 	"clients-test/internal/adapters/apis/github"
 	"clients-test/internal/adapters/apis/ipfs"
 	"clients-test/internal/adapters/apis/snapshots"
-	"clients-test/internal/adapters/composite"
+	"clients-test/internal/adapters/composite/testmanager"
 	"clients-test/internal/adapters/shared/blocknumber"
 	"clients-test/internal/adapters/shared/download"
 	"clients-test/internal/adapters/shared/testing"
@@ -90,7 +90,7 @@ func main() {
 	}
 
 	// Initialize the unified test adapter (now also initializes composites internally)
-	compositeAdapter := composite.NewCompositeAdapter(
+	compositeAdapter := testmanager.NewTestManagerAdapter(
 		dappManagerAdapter,
 		brainAdapter,
 		dockerAdapter,
