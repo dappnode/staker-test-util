@@ -6,7 +6,6 @@ import (
 	"clients-test/internal/logger"
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 )
 
@@ -169,7 +168,7 @@ func (s *SnapshotCheckerService) checkAndUpdateSnapshot(ctx context.Context) err
 // checkNeedsSnapshotDownload determines if a snapshot needs to be downloaded
 // by reading the current block number and comparing with the latest available
 // Logs clearly the current and latest block numbers for visibility
-func (s *SnapshotCheckerService) checkNeedsSnapshotDownload(ctx context.Context, client domain.ExecutionClientInfo, latestBlockNumber string) (bool, error) {
+func (s *SnapshotCheckerService) checkNeedsSnapshotDownload(ctx context.Context, client domain.ExecutionClientInfo, latestBlockNumber uint64) (bool, error) {
 	// Check if block number file exists
 	exists, err := s.blockNumber.BlockNumberExists(ctx)
 	if err != nil {
@@ -188,8 +187,8 @@ func (s *SnapshotCheckerService) checkNeedsSnapshotDownload(ctx context.Context,
 	}
 
 	// Log both block numbers clearly
-	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Current snapshot block: %s", client.ShortName, currentBlockNumber)
-	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Latest available block: %s", client.ShortName, latestBlockNumber)
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Current snapshot block: %d", client.ShortName, currentBlockNumber)
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Latest available block: %d", client.ShortName, latestBlockNumber)
 
 	// BlockRange logic: if within range, consider up to date (before isNewerSnapshot)
 	if s.isWithinBlockRange(currentBlockNumber, latestBlockNumber, s.config.BlockRange, client.ShortName) {
@@ -203,9 +202,9 @@ func (s *SnapshotCheckerService) checkNeedsSnapshotDownload(ctx context.Context,
 	}
 
 	if isNewer {
-		logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Newer snapshot available (%s > %s) - download required", client.ShortName, latestBlockNumber, currentBlockNumber)
+		logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Newer snapshot available (%d > %d) - download required", client.ShortName, latestBlockNumber, currentBlockNumber)
 	} else {
-		logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Current snapshot is up to date (current: %s, latest: %s)", client.ShortName, currentBlockNumber, latestBlockNumber)
+		logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Current snapshot is up to date (current: %d, latest: %d)", client.ShortName, currentBlockNumber, latestBlockNumber)
 	}
 
 	return isNewer, nil
@@ -213,23 +212,18 @@ func (s *SnapshotCheckerService) checkNeedsSnapshotDownload(ctx context.Context,
 
 // isWithinBlockRange checks if the difference between latest and current block is within the given range.
 // If so, logs and returns true (should skip download). Otherwise, returns false.
-func (s *SnapshotCheckerService) isWithinBlockRange(currentBlock, latestBlock string, blockRange int, clientShortName string) bool {
-	currentInt, err1 := parseBlockNumber(currentBlock)
-	latestInt, err2 := parseBlockNumber(latestBlock)
-	if err1 == nil && err2 == nil && blockRange > 0 {
+func (s *SnapshotCheckerService) isWithinBlockRange(currentBlock, latestBlock, blockRange uint64, clientShortName string) bool {
+	currentInt := int64(currentBlock)
+	latestInt := int64(latestBlock)
+	if blockRange > 0 {
 		diff := latestInt - currentInt
 		if diff >= 0 && diff <= int64(blockRange) {
 			logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Block difference (%d) is within BlockRange (%d); skipping download. Current: %d, Latest: %d", clientShortName, diff, blockRange, currentInt, latestInt)
 			return true
 		}
 	}
-	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Block difference is outside BlockRange; download needed. Current: %s, Latest: %s", clientShortName, currentBlock, latestBlock)
+	logger.InfoWithPrefix(snapshotLogPrefix, "[%s] Block difference is outside BlockRange; download needed. Current: %d, Latest: %d", clientShortName, currentBlock, latestBlock)
 	return false
-}
-
-// parseBlockNumber safely parses a block number string to int64
-func parseBlockNumber(s string) (int64, error) {
-	return strconv.ParseInt(s, 10, 64)
 }
 
 // StopDownload stops the current download container (for graceful shutdown)

@@ -44,7 +44,7 @@ func NewTestManagerAdapter(
 
 	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter, blockNumberAdapter, snapshotVersionAdapter)
 	executor := executor.NewExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
-	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, brainAdapter, beaconchainAdapter, dockerAdapter)
+	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, dockerAdapter, blockNumberAdapter)
 	return &TestManagerAdapter{
 		ensurer:  ensurer,
 		executor: executor,

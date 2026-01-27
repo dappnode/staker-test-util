@@ -3,7 +3,6 @@ package ensurer
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"clients-test/internal/adapters/apis/beaconchain"
@@ -129,10 +128,8 @@ func getClientVersionWithRetry(getVersionFunc func() (string, error), clientType
 // and stores it in the report. Errors are silently ignored as this is informational.
 func (e *EnsurerAdapter) readSnapshotBlockNumber(ctx context.Context, report *domain.TestReport) {
 	// Use the BlockNumber adapter which is already initialized with the correct path
-	blockNumberStr, err := e.BlockNumber.ReadBlockNumber(ctx)
-	if err == nil && blockNumberStr != "" {
-		if blockNumber, parseErr := strconv.ParseUint(blockNumberStr, 10, 64); parseErr == nil {
-			report.SnapshotBlockNumber = blockNumber
-		}
+	blockNumber, err := e.BlockNumber.ReadBlockNumber(ctx)
+	if err == nil && blockNumber != 0 {
+		report.SnapshotBlockNumber = blockNumber
 	}
 }

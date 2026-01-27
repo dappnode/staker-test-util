@@ -12,7 +12,7 @@ type SnapshotManager interface {
 	DownloadAndMountSnapshot(ctx context.Context, network string, client domain.ExecutionClientInfo) error
 
 	// GetLatestBlockNumber fetches the latest available block number for a client
-	GetLatestBlockNumber(ctx context.Context, network, client string) (string, error)
+	GetLatestBlockNumber(ctx context.Context, network, client string) (uint64, error)
 
 	// StopDownload stops the snapshot download container for a specific client
 	StopDownload(ctx context.Context, clientShortName string)

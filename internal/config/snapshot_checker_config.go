@@ -15,8 +15,8 @@ type SnapshotCheckerAppConfig struct {
 	ExecutionClient string
 	Network         string
 	CronIntervalSec int
-	BlockRange      int  // Number of blocks to check for new snapshots
-	RunOnce         bool // If true, run once and exit
+	BlockRange      uint64 // Number of blocks to check for new snapshots
+	RunOnce         bool   // If true, run once and exit
 }
 
 // DefaultCronIntervalSec is 6 hours in seconds
@@ -40,11 +40,30 @@ func ParseSnapshotCheckerConfig() SnapshotCheckerAppConfig {
 		ExecutionClient: strings.TrimSpace(strings.ToLower(getConfigValue(*executionClient, "EXECUTION_CLIENT", ""))),
 		Network:         getConfigValue(*network, "NETWORK", "hoodi"),
 		CronIntervalSec: getConfigValueInt(*cronIntervalSec, "CRON_INTERVAL_SEC", DefaultCronIntervalSec),
-		BlockRange:      getConfigValueInt(*blockRange, "BLOCK_RANGE", DefaultBlockRange),
+		BlockRange:      getConfigValueUint64(*blockRange, "BLOCK_RANGE", DefaultBlockRange),
 		RunOnce:         *runOnce || os.Getenv("RUN_ONCE") == "true",
 	}
 
 	return config
+}
+
+// getConfigValueUint64 returns the flag value if set, otherwise falls back to the environment variable, then default
+func getConfigValueUint64(flagValue int, envName string, defaultValue uint64) uint64 {
+	if flagValue != 0 {
+		return uint64(flagValue)
+	}
+	if envValue := os.Getenv(envName); envValue != "" {
+		var result uint64
+		for _, c := range envValue {
+			if c >= '0' && c <= '9' {
+				result = result*10 + uint64(c-'0')
+			}
+		}
+		if result > 0 {
+			return result
+		}
+	}
+	return defaultValue
 }
 
 // getConfigValueInt returns the flag value if set, otherwise falls back to the environment variable, then default

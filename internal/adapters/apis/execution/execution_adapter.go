@@ -111,3 +111,50 @@ func (e *ExecutionAdapter) GetIsSyncing(ctx context.Context) (bool, error) {
 	}
 	return true, nil
 }
+
+// GetLatestBlockNumber retrieves the latest block number from the execution client
+func (e *ExecutionAdapter) GetLatestBlockNumber(ctx context.Context) (uint64, error) {
+	url := e.baseURL
+	// JSON-RPC request body for eth_blockNumber
+	body := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "eth_blockNumber",
+		"params":  []interface{}{},
+		"id":      1,
+	}
+	jsonBytes, err := json.Marshal(body)
+	if err != nil {
+		return 0, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBytes))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := e.client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("eth_blockNumber failed: %s", resp.Status)
+	}
+
+	var rpcResp struct {
+		Result string `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
+		return 0, err
+	}
+
+	var blockNumber uint64
+	_, err = fmt.Sscanf(rpcResp.Result, "0x%x", &blockNumber)
+	if err != nil {
+		return 0, fmt.Errorf("invalid block number format: %w", err)
+	}
+
+	return blockNumber, nil
+}
