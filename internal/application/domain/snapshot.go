@@ -18,6 +18,7 @@ type SnapshotCheckerConfig struct {
 	ExecutionClient ExecutionClientInfo // The execution client to manage
 	CronIntervalSec int                 // Interval between snapshot checks in seconds (default 6 hours)
 	Network         string              // Network name (e.g., hoodi)
+	BlockRange      int                 // Number of blocks to consider as up-to-date range
 }
 
 // ValidExecutionClients contains all valid execution client short names for hoodi

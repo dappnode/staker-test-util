@@ -15,11 +15,15 @@ type SnapshotCheckerAppConfig struct {
 	ExecutionClient string
 	Network         string
 	CronIntervalSec int
-	RunOnce         bool // If true, run once and exit (for testing)
+	BlockRange      int  // Number of blocks to check for new snapshots
+	RunOnce         bool // If true, run once and exit
 }
 
 // DefaultCronIntervalSec is 6 hours in seconds
 const DefaultCronIntervalSec = 6 * 60 * 60
+
+// DefaultBlockRange is 7200 blocks (~1 day without missing blocks)
+const DefaultBlockRange = 7200
 
 // ParseSnapshotCheckerConfig parses CLI flags and environment variables into a SnapshotCheckerAppConfig
 func ParseSnapshotCheckerConfig() SnapshotCheckerAppConfig {
@@ -27,22 +31,24 @@ func ParseSnapshotCheckerConfig() SnapshotCheckerAppConfig {
 	executionClient := flag.String("execution-client", "", "Execution client name (geth, nethermind, reth, besu, erigon). Required.")
 	network := flag.String("network", "hoodi", "Network name (e.g., hoodi). Default: hoodi")
 	cronIntervalSec := flag.Int("cron-interval", 0, "Interval between snapshot checks in seconds. Default: 21600 (6 hours)")
-	runOnce := flag.Bool("run-once", true, "Run once and exit (for testing). Default: false")
+	blockRange := flag.Int("block-range", 0, "Number of blocks to check for new snapshots. Default: 7200 (1 day)")
+	runOnce := flag.Bool("run-once", true, "Run once and exit. Default: false")
 
 	flag.Parse()
 
 	config := SnapshotCheckerAppConfig{
 		ExecutionClient: strings.TrimSpace(strings.ToLower(getConfigValue(*executionClient, "EXECUTION_CLIENT", ""))),
 		Network:         getConfigValue(*network, "NETWORK", "hoodi"),
-		CronIntervalSec: getCronIntervalConfigValueInt(*cronIntervalSec, "CRON_INTERVAL_SEC", DefaultCronIntervalSec),
+		CronIntervalSec: getConfigValueInt(*cronIntervalSec, "CRON_INTERVAL_SEC", DefaultCronIntervalSec),
+		BlockRange:      getConfigValueInt(*blockRange, "BLOCK_RANGE", DefaultBlockRange),
 		RunOnce:         *runOnce || os.Getenv("RUN_ONCE") == "true",
 	}
 
 	return config
 }
 
-// getCronIntervalConfigValueInt returns the flag value if set, otherwise falls back to the environment variable, then default
-func getCronIntervalConfigValueInt(flagValue int, envName string, defaultValue int) int {
+// getConfigValueInt returns the flag value if set, otherwise falls back to the environment variable, then default
+func getConfigValueInt(flagValue int, envName string, defaultValue int) int {
 	if flagValue != 0 {
 		return flagValue
 	}
