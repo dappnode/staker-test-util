@@ -34,10 +34,12 @@ func (e *CleanerAdapter) CleanEnvironment(ctx context.Context, stakerConfig doma
 	latestBlockNumber, err := e.Execution.GetLatestBlockNumber(ctx)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("get latest block number failed: %w", err))
-	}
-	err = e.BlockNumber.WriteBlockNumber(ctx, latestBlockNumber)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("write block number failed: %w", err))
+	} else {
+		err = e.BlockNumber.WriteBlockNumber(ctx, latestBlockNumber)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("write block number failed: %w", err))
+		}
+
 	}
 
 	// Attempt to stop container
