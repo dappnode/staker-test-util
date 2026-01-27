@@ -1,16 +1,10 @@
 package main
 
 import (
-	"clients-test/internal/adapters/apis/beaconchain"
-	"clients-test/internal/adapters/apis/brain"
-	"clients-test/internal/adapters/apis/dappmanager"
 	"clients-test/internal/adapters/apis/docker"
-	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/github"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/apis/snapshots"
-	"clients-test/internal/adapters/composite"
-	"clients-test/internal/adapters/shared/blocknumber"
+	"clients-test/internal/adapters/composite/testmanager"
 	"clients-test/internal/adapters/shared/download"
 	"clients-test/internal/adapters/shared/testing"
 	"clients-test/internal/application/domain"
@@ -63,11 +57,7 @@ func main() {
 	printStakerConfig(logPrefix, stakerConfig)
 
 	// Initialize API adapters
-	snapshotsAdapter := snapshots.NewSnapshotsAdapter()
-	dappManagerAdapter := dappmanager.NewDappManagerAdapter()
-	brainAdapter := brain.NewBrainAdapter(stakerConfig.Urls.BrainURL)
-	beaconchainAdapter := beaconchain.NewBeaconchainAdapter(stakerConfig.Urls.BeaconchainURL)
-	executionAdapter := execution.NewExecutionAdapter(stakerConfig.Urls.ExecutionURL)
+
 	dockerAdapter, err := docker.NewDockerAdapter()
 	if err != nil {
 		logger.FatalWithPrefix(logPrefix, "Failed to init DockerAdapter: %v", err)
@@ -80,7 +70,6 @@ func main() {
 	logger.InfoWithPrefix(logPrefix, "Using volume path for flag files: %s", stakerConfig.ExecutionVolumeTargetPath)
 	downloadAdapter := download.NewDownloadAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 	testAdapter := testing.NewTestAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
-	blockAdapter := blocknumber.NewBlockNumberAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 
 	// Log GitHub configuration status
 	if githubAdapter.IsEnabled() {
@@ -90,23 +79,18 @@ func main() {
 	}
 
 	// Initialize the unified test adapter (now also initializes composites internally)
-	compositeAdapter := composite.NewCompositeAdapter(
-		dappManagerAdapter,
-		brainAdapter,
+	testManager := testmanager.NewTestManagerAdapter(
+		stakerConfig,
 		dockerAdapter,
-		snapshotsAdapter,
-		beaconchainAdapter,
-		executionAdapter,
 		ipfsAdapter,
 		githubAdapter,
-		blockAdapter,
 	)
 
-	// Ctrl+C handler: call CleanEnvironment on composite
+	// Ctrl+C handler: call CleanEnvironment on testManager
 	go func() {
 		sig := <-sigs
 		logger.InfoWithPrefix(logPrefix, "Received signal: %v, shutting down...", sig)
-		err := compositeAdapter.CleanEnvironment(context.Background(), stakerConfig)
+		err := testManager.CleanEnvironment(context.Background(), stakerConfig)
 		if err != nil {
 			logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", err)
 		}
@@ -118,7 +102,7 @@ func main() {
 	}()
 
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(compositeAdapter, downloadAdapter, testAdapter)
+	testRunner := services.NewTestRunner(testManager, downloadAdapter, testAdapter)
 
 	if err := testRunner.RunTest(ctx, stakerConfig, pkg); err != nil {
 		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)

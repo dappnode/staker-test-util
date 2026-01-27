@@ -12,32 +12,33 @@ import (
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/apis/snapshots"
 	"clients-test/internal/adapters/shared/blocknumber"
+	"clients-test/internal/adapters/shared/snapshotversion"
 	"clients-test/internal/application/domain"
+	"clients-test/internal/logger"
 )
 
 type EnsurerAdapter struct {
-	DappManager *dappmanager.DappManagerAdapter
-	Brain       *brain.BrainAdapter
-	Docker      *docker.DockerAdapter
-	Snapshots   *snapshots.SnapshotsAdapter
-	Beaconchain *beaconchain.BeaconchainAdapter
-	Execution   *execution.ExecutionAdapter
-	Ipfs        *ipfs.IPFSAdapter
-	BlockNumber *blocknumber.BlockNumberAdapter
+	DappManager     *dappmanager.DappManagerAdapter
+	Brain           *brain.BrainAdapter
+	Docker          *docker.DockerAdapter
+	Beaconchain     *beaconchain.BeaconchainAdapter
+	Execution       *execution.ExecutionAdapter
+	Ipfs            *ipfs.IPFSAdapter
+	BlockNumber     *blocknumber.BlockNumberAdapter
+	SnapshotVersion *snapshotversion.Adapter
 }
 
-func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, docker *docker.DockerAdapter, snapshotsAdapter *snapshots.SnapshotsAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter, blockNumberAdapter *blocknumber.BlockNumberAdapter) *EnsurerAdapter {
+func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, docker *docker.DockerAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter, blockNumberAdapter *blocknumber.BlockNumberAdapter, snapshotVersionAdapter *snapshotversion.Adapter) *EnsurerAdapter {
 	return &EnsurerAdapter{
-		DappManager: dappManager,
-		Brain:       brain,
-		Docker:      docker,
-		Snapshots:   snapshotsAdapter,
-		Beaconchain: beaconchain,
-		Execution:   execution,
-		Ipfs:        ipfs,
-		BlockNumber: blockNumberAdapter,
+		DappManager:     dappManager,
+		Brain:           brain,
+		Docker:          docker,
+		Beaconchain:     beaconchain,
+		Execution:       execution,
+		Ipfs:            ipfs,
+		BlockNumber:     blockNumberAdapter,
+		SnapshotVersion: snapshotVersionAdapter,
 	}
 }
 
@@ -70,6 +71,11 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	// Read snapshot block number
 	e.readSnapshotBlockNumber(ctx, report)
 
+	// Read snapshot version
+	if version, err := e.SnapshotVersion.GetSnapshotVersion(ctx); err == nil {
+		report.SnapshotClientVersion = version
+	}
+
 	// SetStakerConfig
 	if err := timeOperation(report, "SetStakerConfig", func() error {
 		return e.DappManager.SetStakerConfig(ctx, stakerConfig)
@@ -78,14 +84,11 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	}
 
 	// Capture client version BEFORE install (if client is already running)
-	if isExecutionTest {
-		if version, err := e.Execution.GetClientVersion(ctx); err == nil {
-			report.ExecutionClientVersionBefore = version
-		}
-	} else if isConsensusTest {
-		if version, err := e.Beaconchain.GetClientVersion(ctx); err == nil {
-			report.ConsensusClientVersionBefore = version
-		}
+	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "before install"); err == nil {
+		report.ExecutionClientVersionBefore = version
+	}
+	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "before install"); err == nil {
+		report.ConsensusClientVersionBefore = version
 	}
 
 	// PackageInstall
@@ -96,17 +99,30 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	}
 
 	// Capture client version AFTER install
-	if isExecutionTest {
-		if version, err := e.Execution.GetClientVersion(ctx); err == nil {
-			report.ExecutionClientVersionAfter = version
-		}
-	} else if isConsensusTest {
-		if version, err := e.Beaconchain.GetClientVersion(ctx); err == nil {
-			report.ConsensusClientVersionAfter = version
-		}
+	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "after install"); err == nil {
+		report.ExecutionClientVersionAfter = version
+	}
+	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "after install"); err == nil {
+		report.ConsensusClientVersionAfter = version
 	}
 
 	return nil
+}
+
+// getClientVersionWithRetry tries to get the client version up to 10 times with 3s sleep between attempts
+// The API takes some time to be available after package installation, so retries help avoid transient errors
+func getClientVersionWithRetry(getVersionFunc func() (string, error), clientType string, stage string) (string, error) {
+	var version string
+	var err error
+	for i := 0; i < 10; i++ {
+		version, err = getVersionFunc()
+		if err == nil {
+			return version, nil
+		}
+		logger.Warn("Failed to get %s client version %s (attempt %d/10): %v", clientType, stage, i+1, err)
+		time.Sleep(3 * time.Second)
+	}
+	return "", err
 }
 
 // readSnapshotBlockNumber reads the snapshot block number from the execution client's volume
