@@ -23,11 +23,15 @@ type ContainerErrorLog struct {
 // TestReport holds all information for the test report
 type TestReport struct {
 	// Client configuration
-	ExecutionDnpName  string `json:"executionDnpName"`
-	ConsensusDnpName  string `json:"consensusDnpName"`
-	Web3SignerDnpName string `json:"web3signerDnpName"`
-	MevBoostDnpName   string `json:"mevBoostDnpName"`
-	Network           string `json:"network"`
+	ExecutionDnpName     string `json:"executionDnpName"`
+	ExecutionDnpVersion  string `json:"executionDnpVersion,omitempty"`
+	ConsensusDnpName     string `json:"consensusDnpName"`
+	ConsensusDnpVersion  string `json:"consensusDnpVersion,omitempty"`
+	Web3SignerDnpName    string `json:"web3signerDnpName"`
+	Web3SignerDnpVersion string `json:"web3signerDnpVersion,omitempty"`
+	MevBoostDnpName      string `json:"mevBoostDnpName"`
+	MevBoostDnpVersion   string `json:"mevBoostDnpVersion,omitempty"`
+	Network              string `json:"network"`
 
 	// Client versions (before/after install)
 	ExecutionClientVersionBefore string `json:"executionClientVersionBefore,omitempty"`
@@ -137,13 +141,13 @@ func (r *TestReport) ToMarkdown() string {
 
 	// Clients Used section
 	sb.WriteString("### 📦 Clients Used\n\n")
-	sb.WriteString("| Component | DNP Name |\n")
-	sb.WriteString("|-----------|----------|\n")
-	sb.WriteString(fmt.Sprintf("| Execution | `%s` |\n", r.ExecutionDnpName))
-	sb.WriteString(fmt.Sprintf("| Consensus | `%s` |\n", r.ConsensusDnpName))
-	sb.WriteString(fmt.Sprintf("| Web3Signer | `%s` |\n", r.Web3SignerDnpName))
-	sb.WriteString(fmt.Sprintf("| MEV Boost | `%s` |\n", r.MevBoostDnpName))
-	sb.WriteString(fmt.Sprintf("| Network | `%s` |\n", r.Network))
+	sb.WriteString("| Component | DNP Name | Version |\n")
+	sb.WriteString("|-----------|----------|---------|\n")
+	sb.WriteString(fmt.Sprintf("| Execution | `%s` | `%s` |\n", r.ExecutionDnpName, r.ExecutionDnpVersion))
+	sb.WriteString(fmt.Sprintf("| Consensus | `%s` | `%s` |\n", r.ConsensusDnpName, r.ConsensusDnpVersion))
+	sb.WriteString(fmt.Sprintf("| Web3Signer | `%s` | `%s` |\n", r.Web3SignerDnpName, r.Web3SignerDnpVersion))
+	sb.WriteString(fmt.Sprintf("| MEV Boost | `%s` | `%s` |\n", r.MevBoostDnpName, r.MevBoostDnpVersion))
+	sb.WriteString(fmt.Sprintf("| Network | `%s` |  |\n", r.Network))
 	sb.WriteString("\n")
 
 	// Version tracking section
@@ -260,10 +264,26 @@ func (r *TestReport) ToConsoleString() string {
 
 	// Clients Used
 	sb.WriteString("CLIENTS USED:\n")
-	sb.WriteString(fmt.Sprintf("  Execution:   %s\n", r.ExecutionDnpName))
-	sb.WriteString(fmt.Sprintf("  Consensus:   %s\n", r.ConsensusDnpName))
-	sb.WriteString(fmt.Sprintf("  Web3Signer:  %s\n", r.Web3SignerDnpName))
-	sb.WriteString(fmt.Sprintf("  MEV Boost:   %s\n", r.MevBoostDnpName))
+	sb.WriteString(fmt.Sprintf("  Execution:   %s", r.ExecutionDnpName))
+	if r.ExecutionDnpVersion != "" {
+		sb.WriteString(fmt.Sprintf(" (v%s)", r.ExecutionDnpVersion))
+	}
+	sb.WriteString("\n")
+	sb.WriteString(fmt.Sprintf("  Consensus:   %s", r.ConsensusDnpName))
+	if r.ConsensusDnpVersion != "" {
+		sb.WriteString(fmt.Sprintf(" (v%s)", r.ConsensusDnpVersion))
+	}
+	sb.WriteString("\n")
+	sb.WriteString(fmt.Sprintf("  Web3Signer:  %s", r.Web3SignerDnpName))
+	if r.Web3SignerDnpVersion != "" {
+		sb.WriteString(fmt.Sprintf(" (v%s)", r.Web3SignerDnpVersion))
+	}
+	sb.WriteString("\n")
+	sb.WriteString(fmt.Sprintf("  MEV Boost:   %s", r.MevBoostDnpName))
+	if r.MevBoostDnpVersion != "" {
+		sb.WriteString(fmt.Sprintf(" (v%s)", r.MevBoostDnpVersion))
+	}
+	sb.WriteString("\n")
 	sb.WriteString(fmt.Sprintf("  Network:     %s\n", r.Network))
 	sb.WriteString("\n")
 

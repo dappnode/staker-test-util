@@ -90,6 +90,8 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 		report.ConsensusClientVersionBefore = version
 	}
 
+	e.captureDnpVersions(ctx, stakerConfig, report)
+
 	// PackageInstall
 	if err := timeOperation(report, "PackageInstall", func() error {
 		return e.DappManager.PackageInstall(ctx, pkg)
@@ -106,6 +108,32 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 	}
 
 	return nil
+}
+
+// captureDnpVersions retrieves the DNP versions from the DappManager and stores them in the report
+func (e *EnsurerAdapter) captureDnpVersions(ctx context.Context, stakerConfig domain.StakerConfig, report *domain.TestReport) {
+	config, err := e.DappManager.GetStakerConfig(ctx, stakerConfig.Network)
+	if err != nil {
+		logger.Warn("Failed to get staker config for DNP version capture: %v", err)
+		return
+	}
+	report.Web3SignerDnpVersion = config.Web3Signer.Data.Manifest.Version
+	// find the execution and consensus from staker config that matches in the config
+	for _, exec := range config.ExecutionClients {
+		if exec.DnpName == stakerConfig.ExecutionDnpName {
+			report.ExecutionDnpVersion = exec.Data.Manifest.Version
+			break
+		}
+	}
+	for _, cons := range config.ConsensusClients {
+		if cons.DnpName == stakerConfig.ConsensusDnpName {
+			report.ConsensusDnpVersion = cons.Data.Manifest.Version
+			break
+		}
+	}
+	if config.MevBoost != nil && stakerConfig.MevBoostDnpName != "" {
+		report.MevBoostDnpVersion = config.MevBoost.Data.Manifest.Version
+	}
 }
 
 // getClientVersionWithRetry tries to get the client version up to 10 times with 3s sleep between attempts
