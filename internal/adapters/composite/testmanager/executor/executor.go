@@ -186,7 +186,7 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 				return nil
 			}
 			lastErr = fmt.Errorf("slot %d: some validators still not live", slot)
-			logger.Error("Some validators still not live (slot %d)", slot)
+			logger.Info("Some validators still not live (slot %d)", slot)
 		}
 
 		if slot < maxSlots-1 {
