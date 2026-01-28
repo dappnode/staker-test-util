@@ -70,6 +70,11 @@ func (d *DappManagerAdapter) PackageInstall(ctx context.Context, pkg domain.Pkg)
 type stakerItemMinimal struct {
 	DnpName    string `json:"dnpName"`
 	IsSelected bool   `json:"isSelected"`
+	Data       struct {
+		Manifest struct {
+			Version string `json:"version"`
+		} `json:"manifest"`
+	} `json:"data"`
 }
 
 // StakerConfigGetMinimal represents the minimal staker config info needed
