@@ -3,8 +3,10 @@ package config
 import (
 	"clients-test/internal/adapters/apis/github"
 	"clients-test/internal/logger"
+	"encoding/json"
 	"flag"
 	"os"
+	"path/filepath"
 )
 
 var logPrefix = "Config"
@@ -38,9 +40,19 @@ func ParseConfig() Config {
 	flag.Parse()
 
 	// Build config with flag values, falling back to environment variables
+	// Determine IPFS hash: flag/env or fallback to releases.json
+	ipfsHashValue := getConfigValue(*ipfsHash, "IPFS_HASH", "")
+	if ipfsHashValue == "" {
+		var err error
+		ipfsHashValue, err = getLatestIPFSHashFromReleases()
+		if err != nil {
+			logger.FatalWithPrefix(logPrefix, "Could not determine IPFS hash: %v", err)
+		}
+	}
+
 	config := Config{
-		IPFSGatewayURL:  getConfigValue(*ipfsGatewayUrl, "IPFS_GATEWAY_URL", ""),
-		IPFSHash:        getConfigValue(*ipfsHash, "IPFS_HASH", ""),
+		IPFSGatewayURL:  getConfigValue(*ipfsGatewayUrl, "IPFS_GATEWAY_URL", "http://ipfs.dappnode:8080"),
+		IPFSHash:        ipfsHashValue,
 		ExecutionClient: getConfigValue(*executionClient, "EXECUTION_CLIENT", ""),
 		ConsensusClient: getConfigValue(*consensusClient, "CONSENSUS_CLIENT", ""),
 		GitHub: github.ParseGitHubConfigFromEnv(
@@ -53,6 +65,35 @@ func ParseConfig() Config {
 	}
 
 	return config
+}
+
+// getLatestIPFSHashFromReleases reads the latest hash from package_variants/hoodi/releases.json
+func getLatestIPFSHashFromReleases() (string, error) {
+	// Find the releases.json file relative to the working directory
+	jsonPath := filepath.Join("package_variants", "hoodi", "releases.json")
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return "", err
+	}
+	// Parse the JSON as a map[string]struct{hash:string}
+	var releases map[string]struct {
+		Hash string `json:"hash"`
+	}
+	if err := json.Unmarshal(data, &releases); err != nil {
+		return "", err
+	}
+	if len(releases) == 0 {
+		return "", nil
+	}
+	// Take the last inserted key (latest) from the map iteration
+	var latestHash string
+	for _, v := range releases {
+		latestHash = v.Hash
+	}
+	if latestHash == "" {
+		return "", nil
+	}
+	return latestHash, nil
 }
 
 // getGitHubPRNumber gets the PR number from flag or environment variables
@@ -80,7 +121,7 @@ func getGitHubServerURL(flagValue string) string {
 
 // Validate checks that required configuration values are present
 func (c *Config) Validate() {
-	if c.IPFSGatewayURL == "" || c.IPFSHash == "" {
-		logger.FatalWithPrefix(logPrefix, "IPFS gateway URL and hash are required. Set via --ipfs-gateway-url/--ipfs-hash flags or IPFS_GATEWAY_URL/IPFS_HASH environment variables.")
+	if c.IPFSHash == "" {
+		logger.FatalWithPrefix(logPrefix, "IPFS hash is required. Set via --ipfs-hash flag or IPFS_HASH environment variable or build it with dappnodesdk and it will be auto-detected under releases.json.")
 	}
 }
