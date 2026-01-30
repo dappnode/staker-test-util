@@ -110,7 +110,7 @@ func (t *ExecutorAdapter) waitForBeaconchainSync(ctx context.Context) error {
 
 // waitForValidatorLiveness waits for all validators to become live up to maxEpochs.
 // It only errors out after maxEpochs, returning the last error encountered.
-func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
+func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context, report *domain.TestReport) error {
 	const (
 		maxSlots    = 32 * 5 // 384s
 		slotSeconds = 12
@@ -166,14 +166,25 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context) error {
 		return lastErr
 	}
 
+	// Set validator URLs in report
+	validatorURLs := make([]string, 0, len(indexes))
+	for _, idx := range indexes {
+		validatorURLs = append(validatorURLs, fmt.Sprintf("https://hoodi.beaconcha.in/validator/%s", idx))
+	}
+	report.BeaconchainValidatorURLs = validatorURLs
+
 	// Now poll liveness over up to maxSlots
 	for slot := 0; slot < maxSlots; slot++ {
 		logger.Info("[ValidatorLiveness] Slot %d/%d: Checking validator liveness...", slot+1, maxSlots)
-		liveness, err := t.Beaconchain.GetValidatorLiveness(ctx, indexes)
+		liveness, epoch, err := t.Beaconchain.GetValidatorLiveness(ctx, indexes)
 		if err != nil {
 			lastErr = fmt.Errorf("get validator liveness slot %d failed: %w", slot, err)
 			logger.Error("Get validator liveness failed (slot %d): %v", slot, err)
 		} else {
+			// Set epoch URL in report (only set once, first successful call)
+			if report.BeaconchainEpochURL == "" && epoch > 0 {
+				report.BeaconchainEpochURL = fmt.Sprintf("https://hoodi.beaconcha.in/epoch/%d", epoch)
+			}
 			allLive := true
 			for _, live := range liveness {
 				if !live {
@@ -213,7 +224,7 @@ func (t *ExecutorAdapter) ExecuteTest(ctx context.Context, report *domain.TestRe
 	}
 
 	if err := timeOperation(report, "WaitForValidatorLiveness", func() error {
-		return t.waitForValidatorLiveness(ctx)
+		return t.waitForValidatorLiveness(ctx, report)
 	}); err != nil {
 		return err
 	}

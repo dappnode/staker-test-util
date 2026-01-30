@@ -60,6 +60,10 @@ type TestReport struct {
 	// Final result
 	Success      bool   `json:"success"`
 	ErrorMessage string `json:"errorMessage,omitempty"`
+
+	// Beaconcha.in URLs
+	BeaconchainEpochURL      string   `json:"beaconchainEpochURL,omitempty"`
+	BeaconchainValidatorURLs []string `json:"beaconchainValidatorURLs,omitempty"`
 }
 
 // NewTestReport creates a new TestReport from StakerConfig
@@ -137,6 +141,18 @@ func (r *TestReport) ToMarkdown() string {
 		sb.WriteString("## ✅ Staker Test Report - PASSED\n\n")
 	} else {
 		sb.WriteString("## ❌ Staker Test Report - FAILED\n\n")
+	}
+
+	// Attestation section (if URLs present)
+	if r.BeaconchainEpochURL != "" || len(r.BeaconchainValidatorURLs) > 0 {
+		sb.WriteString("### 📝 Attestation\n\n")
+		if r.Success && r.BeaconchainEpochURL != "" {
+			sb.WriteString(fmt.Sprintf("- [Epoch on beaconcha.in](%s)\n", r.BeaconchainEpochURL))
+		}
+		for _, vurl := range r.BeaconchainValidatorURLs {
+			sb.WriteString(fmt.Sprintf("- [Validator on beaconcha.in](%s)\n", vurl))
+		}
+		sb.WriteString("\n")
 	}
 
 	// Clients Used section
@@ -261,6 +277,18 @@ func (r *TestReport) ToConsoleString() string {
 		sb.WriteString("       STAKER TEST REPORT - FAILED      \n")
 	}
 	sb.WriteString("========================================\n\n")
+
+	// Attestation section (if URLs present)
+	if r.BeaconchainEpochURL != "" || len(r.BeaconchainValidatorURLs) > 0 {
+		sb.WriteString("ATTESTATION:\n")
+		if r.Success && r.BeaconchainEpochURL != "" {
+			sb.WriteString(fmt.Sprintf("  - Epoch: %s\n", r.BeaconchainEpochURL))
+		}
+		for _, vurl := range r.BeaconchainValidatorURLs {
+			sb.WriteString(fmt.Sprintf("  - Validator: %s\n", vurl))
+		}
+		sb.WriteString("\n")
+	}
 
 	// Clients Used
 	sb.WriteString("CLIENTS USED:\n")

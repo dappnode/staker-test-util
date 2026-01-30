@@ -103,30 +103,30 @@ func parseInt(slot string) uint64 {
 }
 
 // GetValidatorLiveness retrieves validator liveness for the current epoch and given validator indexes
-func (b *BeaconchainAdapter) GetValidatorLiveness(ctx context.Context, indexes []string) (map[string]bool, error) {
+func (b *BeaconchainAdapter) GetValidatorLiveness(ctx context.Context, indexes []string) (map[string]bool, uint64, error) {
 	epoch, err := b.getEpochHead(ctx, "head")
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	// Prepare POST request body as JSON array of indices
 	jsonBytes, err := json.Marshal(indexes)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	url := fmt.Sprintf("%s/eth/v1/validator/liveness/%d", b.beaconChainUrl, epoch)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBytes))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := b.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("validator liveness failed: %s", resp.Status)
+		return nil, 0, fmt.Errorf("validator liveness failed: %s", resp.Status)
 	}
 	var result struct {
 		Data []struct {
@@ -135,13 +135,13 @@ func (b *BeaconchainAdapter) GetValidatorLiveness(ctx context.Context, indexes [
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	liveness := make(map[string]bool)
 	for _, v := range result.Data {
 		liveness[v.Index] = v.IsLive
 	}
-	return liveness, nil
+	return liveness, epoch, nil
 }
 
 // GetClientVersion retrieves the version of the beacon node client
