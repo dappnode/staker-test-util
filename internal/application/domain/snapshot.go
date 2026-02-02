@@ -39,10 +39,10 @@ const SnapshotVersionFileName = "_snapshot_web3_clientVersion.json"
 // GetExecutionClient returns the execution client info for a specific client on hoodi network
 func GetExecutionClient(network string, clientName string) (ExecutionClientInfo, bool) {
 	allClients := map[string]string{
-		"reth": "hoodi-reth.dnp.dappnode.eth",
-		"geth": "hoodi-geth.dnp.dappnode.eth",
-		// "besu":       "hoodi-besu.dnp.dappnode.eth",
-		// "erigon":     "hoodi-erigon.dnp.dappnode.eth",
+		"reth":       "hoodi-reth.dnp.dappnode.eth",
+		"geth":       "hoodi-geth.dnp.dappnode.eth",
+		"besu":       "hoodi-besu.dnp.dappnode.eth",
+		"erigon":     "hoodi-erigon.dnp.dappnode.eth",
 		"nethermind": "hoodi-nethermind.dnp.dappnode.eth",
 	}
 
