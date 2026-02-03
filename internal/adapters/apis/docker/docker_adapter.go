@@ -327,6 +327,9 @@ func (d *DockerAdapter) RemoveVolumeData(ctx context.Context, volumeTargetPath s
 	// remove all files in the volume target path
 	dirEntries, err := os.ReadDir(volumeTargetPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return fmt.Errorf("failed to read volume directory: %w", err)
 	}
 
