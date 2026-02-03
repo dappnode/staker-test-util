@@ -136,17 +136,17 @@ func (e *EnsurerAdapter) captureDnpVersions(ctx context.Context, stakerConfig do
 	}
 }
 
-// getClientVersionWithRetry tries to get the client version up to 10 times with 3s sleep between attempts
+// getClientVersionWithRetry tries to get the client version up to 30 times with 3s sleep between attempts
 // The API takes some time to be available after package installation, so retries help avoid transient errors
 func getClientVersionWithRetry(getVersionFunc func() (string, error), clientType string, stage string) (string, error) {
 	var version string
 	var err error
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
 		version, err = getVersionFunc()
 		if err == nil {
 			return version, nil
 		}
-		logger.Warn("Failed to get %s client version %s (attempt %d/10): %v", clientType, stage, i+1, err)
+		logger.Warn("Failed to get %s client version %s (attempt %d/30): %v", clientType, stage, i+1, err)
 		time.Sleep(3 * time.Second)
 	}
 	return "", err
