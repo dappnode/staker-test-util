@@ -48,9 +48,9 @@ func timeOperation(report *domain.TestReport, operationName string, fn func() er
 }
 
 // EnsureEnvironment validates the environment and prepares it for testing.
-// It sets the staker config and installs the package.
+// It sets the staker config and installs the package (only in test mode).
 // All operations are timed and recorded in the report.
-func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig domain.StakerConfig, pkg domain.Pkg, report *domain.TestReport) error {
+func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, mode domain.RunMode, stakerConfig domain.StakerConfig, pkg domain.Pkg, report *domain.TestReport) error {
 	// Determine what type of client is being tested
 	isExecutionTest := pkg.DnpName == stakerConfig.ExecutionDnpName
 	isConsensusTest := pkg.DnpName == stakerConfig.ConsensusDnpName
@@ -78,19 +78,21 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 
 	e.captureDnpVersions(ctx, stakerConfig, report)
 
-	// PackageInstall
-	if err := timeOperation(report, "PackageInstall", func() error {
-		return e.DappManager.PackageInstall(ctx, pkg)
-	}); err != nil {
-		return fmt.Errorf("failed to install package: %w", err)
-	}
+	// PackageInstall - only in test mode
+	if mode.IsTest() {
+		if err := timeOperation(report, "PackageInstall", func() error {
+			return e.DappManager.PackageInstall(ctx, pkg)
+		}); err != nil {
+			return fmt.Errorf("failed to install package: %w", err)
+		}
 
-	// Capture client version AFTER install
-	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "after install"); err == nil {
-		report.ExecutionClientVersionAfter = version
-	}
-	if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "after install"); err == nil {
-		report.ConsensusClientVersionAfter = version
+		// Capture client version AFTER install
+		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Execution.GetClientVersion(ctx) }, "execution", "after install"); err == nil {
+			report.ExecutionClientVersionAfter = version
+		}
+		if version, err := getClientVersionWithRetry(func() (string, error) { return e.Beaconchain.GetClientVersion(ctx) }, "consensus", "after install"); err == nil {
+			report.ConsensusClientVersionAfter = version
+		}
 	}
 
 	return nil

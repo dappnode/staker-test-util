@@ -34,19 +34,30 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	// Fetch dnpName from ipfs hash
-	ipfsAdapter := ipfs.NewIPFSAdapter(&cfg.IPFSGatewayURL)
-	pkg, err := ipfsAdapter.GetDnpNameAndServiceName(ctx, cfg.IPFSHash)
-	if err != nil {
-		logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
-	}
-
-	// Retrieve staker config based on pkg (dnpName and serviceName) with optional overrides
+	// Build overrides from config
 	overrides := domain.ClientOverrides{
 		ExecutionClient: cfg.ExecutionClient,
 		ConsensusClient: cfg.ConsensusClient,
 	}
-	stakerConfig, warnings := domain.StakerConfigForNetwork(pkg, overrides)
+
+	ipfsAdapter := ipfs.NewIPFSAdapter(&cfg.IPFSGatewayURL)
+
+	var pkg domain.Pkg
+	var stakerConfig domain.StakerConfig
+	var warnings []string
+
+	if cfg.Mode.IsTest() {
+		// Test mode: fetch package info from IPFS hash
+		pkg, err := ipfsAdapter.GetDnpNameAndServiceName(ctx, cfg.IPFSHash)
+		if err != nil {
+			logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
+		}
+		stakerConfig, warnings = domain.StakerConfigForNetwork(pkg, overrides)
+	} else {
+		// Sync mode: use overrides only, no IPFS required
+		logger.InfoWithPrefix(logPrefix, "Sync mode: configuring staker from EXECUTION_CLIENT and CONSENSUS_CLIENT")
+		stakerConfig, warnings = domain.StakerConfigFromOverrides(overrides)
+	}
 
 	// Log any warnings from client resolution
 	for _, warning := range warnings {

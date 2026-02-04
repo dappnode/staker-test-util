@@ -50,9 +50,9 @@ func ParseConfig() Config {
 		logger.FatalWithPrefix(logPrefix, "Invalid mode: %v. Use --mode=sync or --mode=test", err)
 	}
 
-	// Determine IPFS hash: flag/env or fallback to releases.json
+	// Determine IPFS hash: flag/env or fallback to releases.json (only required for test mode)
 	ipfsHashValue := getConfigValue(*ipfsHash, "IPFS_HASH", "")
-	if ipfsHashValue == "" {
+	if ipfsHashValue == "" && parsedMode.IsTest() {
 		var err error
 		ipfsHashValue, err = getLatestIPFSHashFromReleases()
 		if err != nil {
@@ -132,8 +132,9 @@ func getGitHubServerURL(flagValue string) string {
 
 // Validate checks that required configuration values are present
 func (c *Config) Validate() {
-	if c.IPFSHash == "" {
-		logger.FatalWithPrefix(logPrefix, "IPFS hash is required. Set via --ipfs-hash flag or IPFS_HASH environment variable or build it with dappnodesdk and it will be auto-detected under releases.json.")
+	// IPFS hash is only required in test mode
+	if c.Mode.IsTest() && c.IPFSHash == "" {
+		logger.FatalWithPrefix(logPrefix, "IPFS hash is required in test mode. Set via --ipfs-hash flag or IPFS_HASH environment variable or build it with dappnodesdk and it will be auto-detected under releases.json.")
 	}
 }
 

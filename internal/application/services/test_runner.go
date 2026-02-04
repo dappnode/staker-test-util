@@ -34,7 +34,7 @@ func (s *TestRunnerService) Run(ctx context.Context, mode domain.RunMode, staker
 
 	// Step 1: Ensure environment
 	logger.InfoWithPrefix(logPrefix, "Step 1: Ensuring environment for package %s", pkg.DnpName)
-	if err := s.Runner.EnsureEnvironment(ctx, stakerConfig, pkg); err != nil {
+	if err := s.Runner.EnsureEnvironment(ctx, mode, stakerConfig, pkg); err != nil {
 		logger.ErrorWithPrefix(logPrefix, "Setup failed: %v", err)
 		return fmt.Errorf("setup failed: %w", err)
 	}

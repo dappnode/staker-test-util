@@ -50,11 +50,11 @@ func NewTestManagerAdapter(
 	}
 }
 
-func (t *TestManagerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
+func (t *TestManagerAdapter) EnsureEnvironment(ctx context.Context, mode domain.RunMode, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
 	// Initialize the report
 	t.report = domain.NewTestReport(stakerConfig)
 
-	return t.ensurer.EnsureEnvironment(ctx, stakerConfig, pkg, t.report)
+	return t.ensurer.EnsureEnvironment(ctx, mode, stakerConfig, pkg, t.report)
 }
 
 func (t *TestManagerAdapter) ExecuteSync(ctx context.Context, stakerConfig domain.StakerConfig) error {
