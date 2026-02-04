@@ -1,4 +1,4 @@
-name: Execution Client Sync
+name: Execution Client Sync Production
 
 on:
   schedule:
