@@ -2,6 +2,7 @@ package config
 
 import (
 	"clients-test/internal/adapters/apis/github"
+	"clients-test/internal/application/domain"
 	"clients-test/internal/logger"
 	"encoding/json"
 	"flag"
@@ -13,6 +14,7 @@ var logPrefix = "Config"
 
 // Config holds all application configuration
 type Config struct {
+	Mode            domain.RunMode // Required: run mode (sync or test)
 	IPFSGatewayURL  string
 	IPFSHash        string
 	ExecutionClient string // Optional: override execution client (e.g., geth, reth, nethermind)
@@ -23,6 +25,7 @@ type Config struct {
 // ParseConfig parses CLI flags and environment variables into a Config struct
 func ParseConfig() Config {
 	// CLI flags
+	mode := flag.String("mode", "", "Run mode: 'sync' (wait for sync only) or 'test' (full attestation test) (required, or set MODE env)")
 	ipfsGatewayUrl := flag.String("ipfs-gateway-url", "", "IPFS gateway URL (required, or set IPFS_GATEWAY_URL env)")
 	ipfsHash := flag.String("ipfs-hash", "", "IPFS hash for the test package (required, or set IPFS_HASH env)")
 
@@ -40,6 +43,13 @@ func ParseConfig() Config {
 	flag.Parse()
 
 	// Build config with flag values, falling back to environment variables
+	// Parse and validate run mode
+	modeValue := getConfigValue(*mode, "MODE", "")
+	parsedMode, err := domain.ParseRunMode(modeValue)
+	if err != nil {
+		logger.FatalWithPrefix(logPrefix, "Invalid mode: %v. Use --mode=sync or --mode=test", err)
+	}
+
 	// Determine IPFS hash: flag/env or fallback to releases.json
 	ipfsHashValue := getConfigValue(*ipfsHash, "IPFS_HASH", "")
 	if ipfsHashValue == "" {
@@ -51,6 +61,7 @@ func ParseConfig() Config {
 	}
 
 	config := Config{
+		Mode:            parsedMode,
 		IPFSGatewayURL:  getConfigValue(*ipfsGatewayUrl, "IPFS_GATEWAY_URL", "http://ipfs.dappnode:8080"),
 		IPFSHash:        ipfsHashValue,
 		ExecutionClient: getConfigValue(*executionClient, "EXECUTION_CLIENT", ""),

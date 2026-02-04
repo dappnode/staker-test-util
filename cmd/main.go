@@ -25,6 +25,8 @@ func main() {
 	cfg := config.ParseConfig()
 	cfg.Validate()
 
+	logger.InfoWithPrefix(logPrefix, "Running in %s mode", cfg.Mode)
+
 	// Set up Ctrl+C (SIGINT) handler
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -96,11 +98,11 @@ func main() {
 	// Initialize and run the service
 	testRunner := services.NewTestRunner(testManager)
 
-	if err := testRunner.RunTest(ctx, stakerConfig, pkg); err != nil {
-		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
+	if err := testRunner.Run(ctx, cfg.Mode, stakerConfig, pkg); err != nil {
+		logger.FatalWithPrefix(logPrefix, "Run failed: %v", err)
 	}
 
-	logger.InfoWithPrefix(logPrefix, "Test run completed successfully")
+	logger.InfoWithPrefix(logPrefix, "Run completed successfully in %s mode", cfg.Mode)
 }
 
 // helper to pretty print staker config

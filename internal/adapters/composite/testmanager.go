@@ -57,6 +57,34 @@ func (t *TestManagerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig
 	return t.ensurer.EnsureEnvironment(ctx, stakerConfig, pkg, t.report)
 }
 
+func (t *TestManagerAdapter) ExecuteSync(ctx context.Context, stakerConfig domain.StakerConfig) error {
+	// Record start time for log collection
+	startTime := time.Now()
+
+	// Run the sync-only operation
+	syncErr := t.executor.ExecuteSync(ctx, t.report)
+
+	// Record end time
+	endTime := time.Now()
+
+	// Collect container error logs from all relevant containers
+	t.collectContainerErrorLogs(ctx, stakerConfig, startTime, endTime)
+
+	// Set the final result
+	t.report.SetResult(syncErr == nil, syncErr)
+
+	// Print the report to the console
+	fmt.Println(t.report.ToConsoleString())
+
+	// Comment on PR if GitHub integration is enabled (ignore errors - don't fail for PR comment issues)
+	err := t.github.CommentOnPR(ctx, t.report)
+	if err != nil {
+		logger.Error("Failed to comment on PR: %v", err)
+	}
+
+	return syncErr
+}
+
 func (t *TestManagerAdapter) ExecuteTest(ctx context.Context, stakerConfig domain.StakerConfig) error {
 	// Record test start time for log collection
 	testStartTime := time.Now()

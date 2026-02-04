@@ -4,12 +4,26 @@ A testing utility for Dappnode staker packages that runs in GitHub self-hosted r
 
 ## Features
 
+- **Two Run Modes**: Support for `sync` mode (wait for sync only) and `test` mode (full attestation test)
 - **Automated Testing**: Tests staker packages (execution, consensus, web3signer, etc.)
 - **GitHub Integration**: Automatically comments test reports on pull requests
 - **Timing Measurements**: Measures duration of all test phases (setup, execution, cleanup)
 - **Container Log Collection**: Captures error logs from all relevant containers during test execution
 - **Detailed Reports**: Generates comprehensive reports with clients used, timings, and error logs
-- **Snapshot Management**: Automatically downloads and manages execution client snapshots
+
+## Run Modes
+
+The application supports two run modes, specified via the mandatory `--mode` flag or `MODE` environment variable:
+
+### Sync Mode (`--mode=sync`)
+- Waits for execution and consensus clients to sync
+- Does NOT run the attestation/validator liveness test
+- Useful for just ensuring nodes are synced before other operations
+
+### Test Mode (`--mode=test`)
+- Waits for execution and consensus clients to sync
+- Runs the full attestation test (validator liveness check)
+- This is the full testing workflow
 
 ## Quick Start (CI Usage)
 
@@ -18,14 +32,27 @@ A testing utility for Dappnode staker packages that runs in GitHub self-hosted r
 Docker images are automatically published to GitHub Container Registry on every push to main and on releases.
 
 ```bash
-# Test Runner
 ghcr.io/dappnode/staker-test-util/test-runner:latest
-
-# Snapshot Checker
-ghcr.io/dappnode/staker-test-util/snapshot-checker:latest
 ```
 
-### Test Runner in GitHub Actions
+### Sync Mode in GitHub Actions
+
+```yaml
+- name: Sync Ethereum Clients
+  run: |
+    docker run --rm \
+      --network dncore_network \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+      -e MODE=sync \
+      -e IPFS_GATEWAY_URL=http://ipfs.dappnode:8080 \
+      -e IPFS_HASH=${{ env.IPFS_HASH }} \
+      -e EXECUTION_CLIENT=geth \
+      -e CONSENSUS_CLIENT=nimbus \
+      ghcr.io/dappnode/staker-test-util/test-runner:latest
+```
+
+### Test Mode in GitHub Actions
 
 ```yaml
 - name: Run Staker Tests
@@ -34,6 +61,7 @@ ghcr.io/dappnode/staker-test-util/snapshot-checker:latest
       --network dncore_network \
       -v /var/run/docker.sock:/var/run/docker.sock \
       -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+      -e MODE=test \
       -e IPFS_GATEWAY_URL=http://ipfs.dappnode:8080 \
       -e IPFS_HASH=${{ env.IPFS_HASH }} \
       -e EXECUTION_CLIENT=geth \
@@ -44,28 +72,15 @@ ghcr.io/dappnode/staker-test-util/snapshot-checker:latest
       ghcr.io/dappnode/staker-test-util/test-runner:latest
 ```
 
-### Snapshot Checker in GitHub Actions
-
-```yaml
-- name: Ensure Snapshot Available
-  run: |
-    docker run --rm \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v /var/lib/docker/volumes:/var/lib/docker/volumes \
-      -e EXECUTION_CLIENT=geth \
-      -e NETWORK=hoodi \
-      -e RUN_ONCE=true \
-      ghcr.io/dappnode/staker-test-util/snapshot-checker:latest
-```
-
 See [examples/workflows/](examples/workflows/) for complete workflow examples.
 
 ## Configuration
 
-### Test Runner Environment Variables
+### Environment Variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
+| `MODE` | Run mode: `sync` or `test` | **Yes** |
 | `IPFS_GATEWAY_URL` | IPFS gateway URL for fetching packages | Yes |
 | `IPFS_HASH` | IPFS hash of the test package | Yes |
 | `EXECUTION_CLIENT` | Override execution client (geth, reth, nethermind, besu, erigon) | No |
@@ -73,16 +88,6 @@ See [examples/workflows/](examples/workflows/) for complete workflow examples.
 | `LOG_LEVEL` | Log level (DEBUG, INFO, WARN, ERROR) | No |
 
 > **Note:** If the package being tested is an execution or consensus client, it will override the respective environment variable with a warning.
-
-### Snapshot Checker Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `EXECUTION_CLIENT` | Execution client to manage (geth, reth, nethermind, besu, erigon) | Yes |
-| `NETWORK` | Network name (default: hoodi) | No |
-| `CRON_INTERVAL_SEC` | Interval between checks in seconds (default: 21600 = 6h) | No |
-| `RUN_ONCE` | Run once and exit (default: false) | No |
-| `LOG_LEVEL` | Log level (DEBUG, INFO, WARN, ERROR) | No |
 
 ### GitHub Integration (Optional)
 
@@ -101,8 +106,17 @@ These environment variables enable automatic PR commenting. When running in GitH
 All environment variables can also be set via CLI flags:
 
 ```bash
-# Test Runner
+# Sync Mode
 ./test-runner \
+  --mode=sync \
+  --ipfs-gateway-url="http://ipfs.dappnode:8080" \
+  --ipfs-hash="QmSfPFSauovbMzEcvf2a2csoHtfqpViShwEYpuX3fPR8zv" \
+  --execution-client="geth" \
+  --consensus-client="nimbus"
+
+# Test Mode
+./test-runner \
+  --mode=test \
   --ipfs-gateway-url="http://ipfs.dappnode:8080" \
   --ipfs-hash="QmSfPFSauovbMzEcvf2a2csoHtfqpViShwEYpuX3fPR8zv" \
   --execution-client="geth" \
@@ -110,12 +124,6 @@ All environment variables can also be set via CLI flags:
   --github-token="ghp_xxxx" \
   --github-repository="dappnode/staker-test-util" \
   --github-pr-number="123"
-
-# Snapshot Checker
-./snapshot-checker \
-  --execution-client="geth" \
-  --cron-interval=21600 \
-  --run-once
 ```
 
 ## GitHub Actions Workflow Example
@@ -160,11 +168,14 @@ The test report includes:
 #### Environment Setup
 - SetStakerConfig
 - PackageInstall
-- StopAndGetVolumeTarget
-- DownloadAndExtractSnapshot
-- StartContainer
 
-#### Test Execution
+#### Execution (varies by mode)
+
+**Sync Mode:**
+- WaitForBeaconchainSync
+- WaitForExecutionSync
+
+**Test Mode:**
 - WaitForBeaconchainSync
 - WaitForExecutionSync
 - WaitForValidatorLiveness
@@ -182,7 +193,15 @@ Captures error lines from:
 ## Docker Compose
 
 ```bash
-# With GitHub integration
+# Sync mode with GitHub integration
+MODE=sync \
+GITHUB_TOKEN=ghp_xxxx \
+GITHUB_REPOSITORY=dappnode/staker-test-util \
+GITHUB_PR_NUMBER=123 \
+docker-compose up --build
+
+# Test mode with GitHub integration
+MODE=test \
 GITHUB_TOKEN=ghp_xxxx \
 GITHUB_REPOSITORY=dappnode/staker-test-util \
 GITHUB_PR_NUMBER=123 \
@@ -191,7 +210,7 @@ docker-compose up --build
 
 ## TODO's
 
-- snapshot checker (cron that runs on startup and every 6h): ensures the Execution clients have the latest snapshots downloaded and mounted to their respective volumes
+- [x] Implement a github adapter to interact with issues and PRs so we can automate report creation as well as the testing process.
   - Checks if snapshots exists for given clients and network
     - If they dont exist then write temporary file `download_in_progress` to signal other processes that snapshot download is in progress and:
       1. download snapshots
