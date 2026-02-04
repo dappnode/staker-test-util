@@ -78,8 +78,8 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, mode domain.RunM
 
 	e.captureDnpVersions(ctx, stakerConfig, report)
 
-	// PackageInstall - only in test mode
-	if mode.IsTest() {
+	// PackageInstall - only if a package was specified (IPFS hash provided)
+	if pkg.DnpName != "" {
 		if err := timeOperation(report, "PackageInstall", func() error {
 			return e.DappManager.PackageInstall(ctx, pkg)
 		}); err != nil {

@@ -46,16 +46,17 @@ func main() {
 	var stakerConfig domain.StakerConfig
 	var warnings []string
 
-	if cfg.Mode.IsTest() {
-		// Test mode: fetch package info from IPFS hash
-		pkg, err := ipfsAdapter.GetDnpNameAndServiceName(ctx, cfg.IPFSHash)
+	// Fetch package info from IPFS if hash is provided (required for test mode, optional for sync mode)
+	if cfg.IPFSHash != "" {
+		var err error
+		pkg, err = ipfsAdapter.GetDnpNameAndServiceName(ctx, cfg.IPFSHash)
 		if err != nil {
 			logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
 		}
 		stakerConfig, warnings = domain.StakerConfigForNetwork(pkg, overrides)
 	} else {
-		// Sync mode: use overrides only, no IPFS required
-		logger.InfoWithPrefix(logPrefix, "Sync mode: configuring staker from EXECUTION_CLIENT and CONSENSUS_CLIENT")
+		// No IPFS hash: use overrides only (only valid in sync mode)
+		logger.InfoWithPrefix(logPrefix, "No IPFS hash provided: configuring staker from EXECUTION_CLIENT and CONSENSUS_CLIENT")
 		stakerConfig, warnings = domain.StakerConfigFromOverrides(overrides)
 	}
 
