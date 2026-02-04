@@ -43,5 +43,5 @@ jobs:
             -e MODE=sync \
             -e IPFS_HASH=${{ needs.build.outputs.ipfs_hash }} \
             -e EXECUTION_CLIENT='geth' \
-            -e CONSENSUS_CLIENT=${{ github.event.inputs.consensus_client || 'prysm' }} \
+            -e CONSENSUS_CLIENT=${{ github.event.inputs.consensus_client }} \
             ghcr.io/dappnode/staker-test-util/test-runner:latest
