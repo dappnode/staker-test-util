@@ -38,15 +38,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          go build -o test-runner-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/test-runner
-
-      - name: Build snapshot-checker
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
-        run: |
-          go build -o snapshot-checker-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/snapshot-checker
+          go build -o test-runner-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/main.go
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -54,7 +46,6 @@ jobs:
           name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
             test-runner-${{ matrix.goos }}-${{ matrix.goarch }}
-            snapshot-checker-${{ matrix.goos }}-${{ matrix.goarch }}
 
   docker:
     needs: build-binaries
@@ -67,8 +58,6 @@ jobs:
         include:
           - name: test-runner
             dockerfile: Dockerfile.test-runner
-          - name: snapshot-checker
-            dockerfile: Dockerfile.snapshot-checker
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

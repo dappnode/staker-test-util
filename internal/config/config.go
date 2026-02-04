@@ -125,3 +125,14 @@ func (c *Config) Validate() {
 		logger.FatalWithPrefix(logPrefix, "IPFS hash is required. Set via --ipfs-hash flag or IPFS_HASH environment variable or build it with dappnodesdk and it will be auto-detected under releases.json.")
 	}
 }
+
+// getConfigValue returns the flag value if set, otherwise falls back to the environment variable, then default
+func getConfigValue(flagValue, envName, defaultValue string) string {
+	if flagValue != "" {
+		return flagValue
+	}
+	if envValue := os.Getenv(envName); envValue != "" {
+		return envValue
+	}
+	return defaultValue
+}

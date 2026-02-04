@@ -1,4 +1,4 @@
-package testmanager
+package composite
 
 import (
 	"clients-test/internal/adapters/apis/beaconchain"
@@ -8,11 +8,9 @@ import (
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/github"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/composite/testmanager/cleaner"
-	"clients-test/internal/adapters/composite/testmanager/ensurer"
-	"clients-test/internal/adapters/composite/testmanager/executor"
-	"clients-test/internal/adapters/shared/blocknumber"
-	"clients-test/internal/adapters/shared/snapshotversion"
+	"clients-test/internal/adapters/composite/cleaner"
+	"clients-test/internal/adapters/composite/ensurer"
+	"clients-test/internal/adapters/composite/executor"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/logger"
 	"context"
@@ -39,12 +37,10 @@ func NewTestManagerAdapter(
 	brainAdapter := brain.NewBrainAdapter(stakerConfig.Urls.BrainURL)
 	beaconchainAdapter := beaconchain.NewBeaconchainAdapter(stakerConfig.Urls.BeaconchainURL)
 	executionAdapter := execution.NewExecutionAdapter(stakerConfig.Urls.ExecutionURL)
-	blockNumberAdapter := blocknumber.NewBlockNumberAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
-	snapshotVersionAdapter := snapshotversion.NewAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 
-	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter, blockNumberAdapter, snapshotVersionAdapter)
+	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter)
 	executor := executor.NewExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
-	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, dockerAdapter, blockNumberAdapter)
+	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, dockerAdapter)
 	return &TestManagerAdapter{
 		ensurer:  ensurer,
 		executor: executor,

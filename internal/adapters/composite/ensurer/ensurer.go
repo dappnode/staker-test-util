@@ -11,33 +11,27 @@ import (
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/shared/blocknumber"
-	"clients-test/internal/adapters/shared/snapshotversion"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/logger"
 )
 
 type EnsurerAdapter struct {
-	DappManager     *dappmanager.DappManagerAdapter
-	Brain           *brain.BrainAdapter
-	Docker          *docker.DockerAdapter
-	Beaconchain     *beaconchain.BeaconchainAdapter
-	Execution       *execution.ExecutionAdapter
-	Ipfs            *ipfs.IPFSAdapter
-	BlockNumber     *blocknumber.BlockNumberAdapter
-	SnapshotVersion *snapshotversion.Adapter
+	DappManager *dappmanager.DappManagerAdapter
+	Brain       *brain.BrainAdapter
+	Docker      *docker.DockerAdapter
+	Beaconchain *beaconchain.BeaconchainAdapter
+	Execution   *execution.ExecutionAdapter
+	Ipfs        *ipfs.IPFSAdapter
 }
 
-func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, docker *docker.DockerAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter, blockNumberAdapter *blocknumber.BlockNumberAdapter, snapshotVersionAdapter *snapshotversion.Adapter) *EnsurerAdapter {
+func NewEnsurerAdapter(dappManager *dappmanager.DappManagerAdapter, brain *brain.BrainAdapter, docker *docker.DockerAdapter, beaconchain *beaconchain.BeaconchainAdapter, execution *execution.ExecutionAdapter, ipfs *ipfs.IPFSAdapter) *EnsurerAdapter {
 	return &EnsurerAdapter{
-		DappManager:     dappManager,
-		Brain:           brain,
-		Docker:          docker,
-		Beaconchain:     beaconchain,
-		Execution:       execution,
-		Ipfs:            ipfs,
-		BlockNumber:     blockNumberAdapter,
-		SnapshotVersion: snapshotVersionAdapter,
+		DappManager: dappManager,
+		Brain:       brain,
+		Docker:      docker,
+		Beaconchain: beaconchain,
+		Execution:   execution,
+		Ipfs:        ipfs,
 	}
 }
 
@@ -65,14 +59,6 @@ func (e *EnsurerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig dom
 		report.TestedClientType = "execution"
 	} else if isConsensusTest {
 		report.TestedClientType = "consensus"
-	}
-
-	// Read snapshot block number
-	e.readSnapshotBlockNumber(ctx, report)
-
-	// Read snapshot version
-	if version, err := e.SnapshotVersion.GetSnapshotVersion(ctx); err == nil {
-		report.SnapshotClientVersion = version
 	}
 
 	// SetStakerConfig
@@ -150,14 +136,4 @@ func getClientVersionWithRetry(getVersionFunc func() (string, error), clientType
 		time.Sleep(3 * time.Second)
 	}
 	return "", err
-}
-
-// readSnapshotBlockNumber reads the snapshot block number from the execution client's volume
-// and stores it in the report. Errors are silently ignored as this is informational.
-func (e *EnsurerAdapter) readSnapshotBlockNumber(ctx context.Context, report *domain.TestReport) {
-	// Use the BlockNumber adapter which is already initialized with the correct path
-	blockNumber, err := e.BlockNumber.ReadBlockNumber(ctx)
-	if err == nil && blockNumber != 0 {
-		report.SnapshotBlockNumber = blockNumber
-	}
 }

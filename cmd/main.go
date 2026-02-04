@@ -4,9 +4,7 @@ import (
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/github"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/composite/testmanager"
-	"clients-test/internal/adapters/shared/download"
-	"clients-test/internal/adapters/shared/testing"
+	"clients-test/internal/adapters/composite"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
 	"clients-test/internal/config"
@@ -68,8 +66,6 @@ func main() {
 
 	// Initialize shared adapters with execution client's volume path
 	logger.InfoWithPrefix(logPrefix, "Using volume path for flag files: %s", stakerConfig.ExecutionVolumeTargetPath)
-	downloadAdapter := download.NewDownloadAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
-	testAdapter := testing.NewTestAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 
 	// Log GitHub configuration status
 	if githubAdapter.IsEnabled() {
@@ -79,7 +75,7 @@ func main() {
 	}
 
 	// Initialize the unified test adapter (now also initializes composites internally)
-	testManager := testmanager.NewTestManagerAdapter(
+	testManager := composite.NewTestManagerAdapter(
 		stakerConfig,
 		dockerAdapter,
 		ipfsAdapter,
@@ -94,15 +90,11 @@ func main() {
 		if err != nil {
 			logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", err)
 		}
-		// Best-effort cleanup, clear marker file `.test_in_progress` so next run isn't blocked.
-		if err := testAdapter.ClearTestInProgress(context.Background()); err != nil {
-			logger.WarnWithPrefix(logPrefix, "Failed to clear %s marker on shutdown: %v", domain.TestProgressFileName, err)
-		}
 		cancel()
 	}()
 
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(testManager, downloadAdapter, testAdapter)
+	testRunner := services.NewTestRunner(testManager)
 
 	if err := testRunner.RunTest(ctx, stakerConfig, pkg); err != nil {
 		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
