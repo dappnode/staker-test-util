@@ -1,4 +1,4 @@
-package testmanager
+package composite
 
 import (
 	"clients-test/internal/adapters/apis/beaconchain"
@@ -8,11 +8,9 @@ import (
 	"clients-test/internal/adapters/apis/execution"
 	"clients-test/internal/adapters/apis/github"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/composite/testmanager/cleaner"
-	"clients-test/internal/adapters/composite/testmanager/ensurer"
-	"clients-test/internal/adapters/composite/testmanager/executor"
-	"clients-test/internal/adapters/shared/blocknumber"
-	"clients-test/internal/adapters/shared/snapshotversion"
+	"clients-test/internal/adapters/composite/cleaner"
+	"clients-test/internal/adapters/composite/ensurer"
+	"clients-test/internal/adapters/composite/executor"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/logger"
 	"context"
@@ -39,12 +37,10 @@ func NewTestManagerAdapter(
 	brainAdapter := brain.NewBrainAdapter(stakerConfig.Urls.BrainURL)
 	beaconchainAdapter := beaconchain.NewBeaconchainAdapter(stakerConfig.Urls.BeaconchainURL)
 	executionAdapter := execution.NewExecutionAdapter(stakerConfig.Urls.ExecutionURL)
-	blockNumberAdapter := blocknumber.NewBlockNumberAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
-	snapshotVersionAdapter := snapshotversion.NewAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 
-	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter, blockNumberAdapter, snapshotVersionAdapter)
+	ensurer := ensurer.NewEnsurerAdapter(dappManagerAdapter, brainAdapter, dockerAdapter, beaconchainAdapter, executionAdapter, ipfsAdapter)
 	executor := executor.NewExecutorAdapter(executionAdapter, brainAdapter, beaconchainAdapter)
-	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, dockerAdapter, blockNumberAdapter)
+	cleaner := cleaner.NewCleanerAdapter(dappManagerAdapter, executionAdapter, dockerAdapter)
 	return &TestManagerAdapter{
 		ensurer:  ensurer,
 		executor: executor,
@@ -54,11 +50,39 @@ func NewTestManagerAdapter(
 	}
 }
 
-func (t *TestManagerAdapter) EnsureEnvironment(ctx context.Context, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
+func (t *TestManagerAdapter) EnsureEnvironment(ctx context.Context, mode domain.RunMode, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
 	// Initialize the report
 	t.report = domain.NewTestReport(stakerConfig)
 
-	return t.ensurer.EnsureEnvironment(ctx, stakerConfig, pkg, t.report)
+	return t.ensurer.EnsureEnvironment(ctx, mode, stakerConfig, pkg, t.report)
+}
+
+func (t *TestManagerAdapter) ExecuteSync(ctx context.Context, stakerConfig domain.StakerConfig) error {
+	// Record start time for log collection
+	startTime := time.Now()
+
+	// Run the sync-only operation
+	syncErr := t.executor.ExecuteSync(ctx, t.report)
+
+	// Record end time
+	endTime := time.Now()
+
+	// Collect container error logs from all relevant containers
+	t.collectContainerErrorLogs(ctx, stakerConfig, startTime, endTime)
+
+	// Set the final result
+	t.report.SetResult(syncErr == nil, syncErr)
+
+	// Print the report to the console
+	fmt.Println(t.report.ToConsoleString())
+
+	// Comment on PR if GitHub integration is enabled (ignore errors - don't fail for PR comment issues)
+	err := t.github.CommentOnPR(ctx, t.report)
+	if err != nil {
+		logger.Error("Failed to comment on PR: %v", err)
+	}
+
+	return syncErr
 }
 
 func (t *TestManagerAdapter) ExecuteTest(ctx context.Context, stakerConfig domain.StakerConfig) error {

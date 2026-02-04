@@ -38,10 +38,6 @@ type TestReport struct {
 	ExecutionClientVersionAfter  string `json:"executionClientVersionAfter,omitempty"`
 	ConsensusClientVersionBefore string `json:"consensusClientVersionBefore,omitempty"`
 	ConsensusClientVersionAfter  string `json:"consensusClientVersionAfter,omitempty"`
-	SnapshotClientVersion        string `json:"snapshotClientVersion,omitempty"`
-
-	// blocknumber of the snapshot used
-	SnapshotBlockNumber uint64 `json:"snapshotBlockNumber,omitempty"`
 
 	// What type of client is being tested
 	TestedClientType string `json:"testedClientType,omitempty"` // "execution" or "consensus"
@@ -183,12 +179,6 @@ func (r *TestReport) ToMarkdown() string {
 	} else {
 		sb.WriteString("| After Install | _not available_ |\n")
 	}
-	if r.SnapshotClientVersion != "" {
-		sb.WriteString(fmt.Sprintf("| Snapshot | `%s` |\n", r.SnapshotClientVersion))
-	}
-	if r.SnapshotBlockNumber > 0 {
-		sb.WriteString(fmt.Sprintf("| Snapshot Block | `%d` |\n", r.SnapshotBlockNumber))
-	}
 	sb.WriteString("\n")
 
 	// Consensus client versions
@@ -329,12 +319,6 @@ func (r *TestReport) ToConsoleString() string {
 		sb.WriteString(fmt.Sprintf("    After Install:      %s\n", r.ExecutionClientVersionAfter))
 	} else {
 		sb.WriteString("    After Install:      _not available_\n")
-	}
-	if r.SnapshotClientVersion != "" {
-		sb.WriteString(fmt.Sprintf("    Snapshot Version:   %s\n", r.SnapshotClientVersion))
-	}
-	if r.SnapshotBlockNumber > 0 {
-		sb.WriteString(fmt.Sprintf("    Snapshot Block:     %d\n", r.SnapshotBlockNumber))
 	}
 
 	// Consensus client versions

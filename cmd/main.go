@@ -4,9 +4,7 @@ import (
 	"clients-test/internal/adapters/apis/docker"
 	"clients-test/internal/adapters/apis/github"
 	"clients-test/internal/adapters/apis/ipfs"
-	"clients-test/internal/adapters/composite/testmanager"
-	"clients-test/internal/adapters/shared/download"
-	"clients-test/internal/adapters/shared/testing"
+	"clients-test/internal/adapters/composite"
 	"clients-test/internal/application/domain"
 	"clients-test/internal/application/services"
 	"clients-test/internal/config"
@@ -27,6 +25,8 @@ func main() {
 	cfg := config.ParseConfig()
 	cfg.Validate()
 
+	logger.InfoWithPrefix(logPrefix, "Running in %s mode", cfg.Mode)
+
 	// Set up Ctrl+C (SIGINT) handler
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -34,19 +34,31 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	// Fetch dnpName from ipfs hash
-	ipfsAdapter := ipfs.NewIPFSAdapter(&cfg.IPFSGatewayURL)
-	pkg, err := ipfsAdapter.GetDnpNameAndServiceName(ctx, cfg.IPFSHash)
-	if err != nil {
-		logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
-	}
-
-	// Retrieve staker config based on pkg (dnpName and serviceName) with optional overrides
+	// Build overrides from config
 	overrides := domain.ClientOverrides{
 		ExecutionClient: cfg.ExecutionClient,
 		ConsensusClient: cfg.ConsensusClient,
 	}
-	stakerConfig, warnings := domain.StakerConfigForNetwork(pkg, overrides)
+
+	ipfsAdapter := ipfs.NewIPFSAdapter(&cfg.IPFSGatewayURL)
+
+	var pkg domain.Pkg
+	var stakerConfig domain.StakerConfig
+	var warnings []string
+
+	// Fetch package info from IPFS if hash is provided (required for test mode, optional for sync mode)
+	if cfg.IPFSHash != "" {
+		var err error
+		pkg, err = ipfsAdapter.GetDnpNameAndServiceName(ctx, cfg.IPFSHash)
+		if err != nil {
+			logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
+		}
+		stakerConfig, warnings = domain.StakerConfigForNetwork(pkg, overrides)
+	} else {
+		// No IPFS hash: use overrides only (only valid in sync mode)
+		logger.InfoWithPrefix(logPrefix, "No IPFS hash provided: configuring staker from EXECUTION_CLIENT and CONSENSUS_CLIENT")
+		stakerConfig, warnings = domain.StakerConfigFromOverrides(overrides)
+	}
 
 	// Log any warnings from client resolution
 	for _, warning := range warnings {
@@ -68,8 +80,6 @@ func main() {
 
 	// Initialize shared adapters with execution client's volume path
 	logger.InfoWithPrefix(logPrefix, "Using volume path for flag files: %s", stakerConfig.ExecutionVolumeTargetPath)
-	downloadAdapter := download.NewDownloadAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
-	testAdapter := testing.NewTestAdapterWithPath(stakerConfig.ExecutionVolumeTargetPath)
 
 	// Log GitHub configuration status
 	if githubAdapter.IsEnabled() {
@@ -79,7 +89,7 @@ func main() {
 	}
 
 	// Initialize the unified test adapter (now also initializes composites internally)
-	testManager := testmanager.NewTestManagerAdapter(
+	testManager := composite.NewTestManagerAdapter(
 		stakerConfig,
 		dockerAdapter,
 		ipfsAdapter,
@@ -94,21 +104,17 @@ func main() {
 		if err != nil {
 			logger.ErrorWithPrefix(logPrefix, "Cleanup failed: %v", err)
 		}
-		// Best-effort cleanup, clear marker file `.test_in_progress` so next run isn't blocked.
-		if err := testAdapter.ClearTestInProgress(context.Background()); err != nil {
-			logger.WarnWithPrefix(logPrefix, "Failed to clear %s marker on shutdown: %v", domain.TestProgressFileName, err)
-		}
 		cancel()
 	}()
 
 	// Initialize and run the service
-	testRunner := services.NewTestRunner(testManager, downloadAdapter, testAdapter)
+	testRunner := services.NewTestRunner(testManager)
 
-	if err := testRunner.RunTest(ctx, stakerConfig, pkg); err != nil {
-		logger.FatalWithPrefix(logPrefix, "Test run failed: %v", err)
+	if err := testRunner.Run(ctx, cfg.Mode, stakerConfig, pkg); err != nil {
+		logger.FatalWithPrefix(logPrefix, "Run failed: %v", err)
 	}
 
-	logger.InfoWithPrefix(logPrefix, "Test run completed successfully")
+	logger.InfoWithPrefix(logPrefix, "Run completed successfully in %s mode", cfg.Mode)
 }
 
 // helper to pretty print staker config

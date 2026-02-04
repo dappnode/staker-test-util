@@ -208,6 +208,24 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context, report *
 	return lastErr
 }
 
+// ExecuteSync runs only the sync checks (beaconchain and execution)
+// All operations are timed and recorded in the report.
+func (t *ExecutorAdapter) ExecuteSync(ctx context.Context, report *domain.TestReport) error {
+	if err := timeOperation(report, "WaitForBeaconchainSync", func() error {
+		return t.waitForBeaconchainSync(ctx)
+	}); err != nil {
+		return err
+	}
+
+	if err := timeOperation(report, "WaitForExecutionSync", func() error {
+		return t.waitForExecutionSync(ctx)
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ExecuteTest runs both sync and liveness checks in sequence
 // All operations are timed and recorded in the report.
 func (t *ExecutorAdapter) ExecuteTest(ctx context.Context, report *domain.TestReport) error {

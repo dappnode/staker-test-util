@@ -51,6 +51,14 @@ var (
 	hoodiConsClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth"}
 )
 
+// StakerConfigFromOverrides creates a StakerConfig using only the override values.
+// Used in sync mode where no IPFS hash/package is provided.
+// If overrides are empty, random clients will be selected.
+func StakerConfigFromOverrides(overrides ClientOverrides) (StakerConfig, []string) {
+	// Use an empty Pkg so resolveClientsWithOverrides will use overrides or random
+	return StakerConfigForNetwork(Pkg{}, overrides)
+}
+
 func StakerConfigForNetwork(pkg Pkg, overrides ClientOverrides) (StakerConfig, []string) {
 	// Only hoodi network is supported
 	network := "hoodi"

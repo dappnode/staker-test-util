@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the test-runner application
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/test-runner ./cmd/test-runner
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/test-runner ./cmd/main.go
 
 # Final stage
 FROM alpine:latest
