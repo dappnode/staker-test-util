@@ -43,20 +43,10 @@ func (a *IPFSAdapter) GetDnpNameAndServiceName(ctx context.Context, ipfsHash str
 	if err != nil {
 		return domain.Pkg{}, fmt.Errorf("failed to get dnpName from IPFS hash: %w", err)
 	}
-	serviceName, err := a.getComposeServiceName(ctx, ipfsHash)
-	if err != nil {
-		return domain.Pkg{}, fmt.Errorf("failed to get compose service name: %w", err)
-	}
-	// Fetch the root volume name from compose
-	volumeName, err := a.getComposeVolumeName(ctx, ipfsHash)
-	if err != nil {
-		return domain.Pkg{}, fmt.Errorf("failed to get compose volume name: %w", err)
-	}
+
 	return domain.Pkg{
-		DnpName:           dnpName,
-		ServiceName:       serviceName,
-		ComposeVolumeName: volumeName,
-		Version:           ipfsHash,
+		DnpName: dnpName,
+		Version: ipfsHash,
 	}, nil
 }
 
