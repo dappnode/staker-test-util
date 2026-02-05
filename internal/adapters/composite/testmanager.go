@@ -52,7 +52,7 @@ func NewTestManagerAdapter(
 
 func (t *TestManagerAdapter) EnsureEnvironment(ctx context.Context, mode domain.RunMode, stakerConfig domain.StakerConfig, pkg domain.Pkg) error {
 	// Initialize the report
-	t.report = domain.NewTestReport(stakerConfig)
+	t.report = domain.NewTestReport(mode, stakerConfig)
 
 	return t.ensurer.EnsureEnvironment(ctx, mode, stakerConfig, pkg, t.report)
 }
