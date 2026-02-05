@@ -22,6 +22,9 @@ type ContainerErrorLog struct {
 
 // TestReport holds all information for the test report
 type TestReport struct {
+	// Mode determines the report title (sync vs test)
+	Mode RunMode `json:"mode,omitempty"`
+
 	// Client configuration
 	ExecutionDnpName     string `json:"executionDnpName"`
 	ExecutionDnpVersion  string `json:"executionDnpVersion,omitempty"`
@@ -62,9 +65,20 @@ type TestReport struct {
 	BeaconchainValidatorURLs []string `json:"beaconchainValidatorURLs,omitempty"`
 }
 
-// NewTestReport creates a new TestReport from StakerConfig
-func NewTestReport(config StakerConfig) *TestReport {
+func (r *TestReport) reportTitle() string {
+	if r.Mode.IsSync() {
+		return "SYNC TEST REPORT"
+	}
+	if r.Mode.IsTest() {
+		return "PROOF OF ATTESTATION TEST REPORT"
+	}
+	return "TEST REPORT"
+}
+
+// NewTestReport creates a new TestReport from mode + StakerConfig
+func NewTestReport(mode RunMode, config StakerConfig) *TestReport {
 	return &TestReport{
+		Mode:              mode,
 		ExecutionDnpName:  config.ExecutionDnpName,
 		ConsensusDnpName:  config.ConsensusDnpName,
 		Web3SignerDnpName: config.Web3SignerDnpName,
@@ -134,9 +148,9 @@ func (r *TestReport) ToMarkdown() string {
 
 	// Header with result emoji
 	if r.Success {
-		sb.WriteString("## ✅ Staker Test Report - PASSED\n\n")
+		sb.WriteString(fmt.Sprintf("## ✅ %s - PASSED\n\n", r.reportTitle()))
 	} else {
-		sb.WriteString("## ❌ Staker Test Report - FAILED\n\n")
+		sb.WriteString(fmt.Sprintf("## ❌ %s - FAILED\n\n", r.reportTitle()))
 	}
 
 	// Attestation section (if URLs present)
@@ -261,11 +275,11 @@ func (r *TestReport) ToConsoleString() string {
 
 	sb.WriteString("\n")
 	sb.WriteString("========================================\n")
+	status := "FAILED"
 	if r.Success {
-		sb.WriteString("       STAKER TEST REPORT - PASSED      \n")
-	} else {
-		sb.WriteString("       STAKER TEST REPORT - FAILED      \n")
+		status = "PASSED"
 	}
+	sb.WriteString(fmt.Sprintf("%s - %s\n", r.reportTitle(), status))
 	sb.WriteString("========================================\n\n")
 
 	// Attestation section (if URLs present)
