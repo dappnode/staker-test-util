@@ -75,6 +75,26 @@ func (r *TestReport) reportTitle() string {
 	return "TEST REPORT"
 }
 
+// reportDescription returns a description of the test based on mode
+func (r *TestReport) reportDescription() string {
+	const commonDesc = "This CI runs on a real DAppNode using the same RPC calls a user would make to configure a staker setup: " +
+		"execution client, consensus client, web3signer, MEV-boost, and relays. " +
+		"The self-hosted runner is pre-loaded with synced (or near-synced) execution client volumes, enabling fast sync and attestation tests with any client combination. " +
+		"Consensus clients use checkpoint sync, so no pre-synced volume is required."
+
+	if r.Mode.IsSync() {
+		return commonDesc + "\n\n" +
+			"**Sync Test:** Verifies that both execution and consensus clients reach a synced state. " +
+			"This test ensures the staker configuration is valid and clients can synchronize with the network."
+	}
+	if r.Mode.IsTest() {
+		return commonDesc + "\n\n" +
+			"**Proof of Attestation Test:** After clients sync, this test imports validators into web3signer and waits for them to become live on the beacon chain. " +
+			"A successful attestation proves the full staker stack is operational end-to-end."
+	}
+	return commonDesc
+}
+
 // NewTestReport creates a new TestReport from mode + StakerConfig
 func NewTestReport(mode RunMode, config StakerConfig) *TestReport {
 	return &TestReport{
@@ -152,6 +172,10 @@ func (r *TestReport) ToMarkdown() string {
 	} else {
 		sb.WriteString(fmt.Sprintf("## ❌ %s - FAILED\n\n", r.reportTitle()))
 	}
+
+	// Description section
+	sb.WriteString(r.reportDescription())
+	sb.WriteString("\n\n")
 
 	// Attestation section (if URLs present)
 	if r.BeaconchainEpochURL != "" || len(r.BeaconchainValidatorURLs) > 0 {
@@ -281,6 +305,18 @@ func (r *TestReport) ToConsoleString() string {
 	}
 	sb.WriteString(fmt.Sprintf("%s - %s\n", r.reportTitle(), status))
 	sb.WriteString("========================================\n\n")
+
+	// Description section
+	sb.WriteString("DESCRIPTION:\n")
+	// Wrap description for console (replace markdown bold with plain text)
+	desc := r.reportDescription()
+	desc = strings.ReplaceAll(desc, "**", "")
+	for _, line := range strings.Split(desc, "\n") {
+		if line != "" {
+			sb.WriteString(fmt.Sprintf("  %s\n", line))
+		}
+	}
+	sb.WriteString("\n")
 
 	// Attestation section (if URLs present)
 	if r.BeaconchainEpochURL != "" || len(r.BeaconchainValidatorURLs) > 0 {
