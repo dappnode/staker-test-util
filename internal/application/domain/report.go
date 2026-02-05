@@ -167,8 +167,8 @@ func (r *TestReport) ToMarkdown() string {
 
 	// Clients Used section
 	sb.WriteString("### 📦 Clients Used\n\n")
-	sb.WriteString("| Component | DNP Name | Version |\n")
-	sb.WriteString("|-----------|----------|---------|\n")
+	sb.WriteString("| Component | DNP Name | DNP Version |\n")
+	sb.WriteString("|-----------|----------|-------------|\n")
 	sb.WriteString(fmt.Sprintf("| Execution | `%s` | `%s` |\n", r.ExecutionDnpName, r.ExecutionDnpVersion))
 	sb.WriteString(fmt.Sprintf("| Consensus | `%s` | `%s` |\n", r.ConsensusDnpName, r.ConsensusDnpVersion))
 	sb.WriteString(fmt.Sprintf("| Web3Signer | `%s` | `%s` |\n", r.Web3SignerDnpName, r.Web3SignerDnpVersion))
