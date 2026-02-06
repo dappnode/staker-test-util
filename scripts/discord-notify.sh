@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
-  echo "DISCORD_WEBHOOK_URL not set — skipping"
+if [ -z "${DISCORD_STAKERS_TESTS_WEBHOOK:-}" ]; then
+  echo "DISCORD_STAKERS_TESTS_WEBHOOK not set — skipping"
   exit 0
 fi
 
@@ -45,5 +45,5 @@ jq -n \
       timestamp: $ts,
       footer: { text: "Staker CI · hoodi" }
     }]
-  }' | curl -sS -f -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK_URL" \
+  }' | curl -sS -f -H "Content-Type: application/json" -d @- "$DISCORD_STAKERS_TESTS_WEBHOOK" \
     || echo "::warning::Failed to post to Discord"
