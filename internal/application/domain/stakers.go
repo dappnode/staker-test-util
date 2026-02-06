@@ -55,11 +55,11 @@ var (
 // Used in sync mode where no IPFS hash/package is provided.
 // If overrides are empty, random clients will be selected.
 func StakerConfigFromOverrides(overrides ClientOverrides) (StakerConfig, []string) {
-	// Use an empty Pkg so resolveClientsWithOverrides will use overrides or random
-	return StakerConfigForNetwork(Pkg{}, overrides)
+	// Pass nil so resolveClientsWithOverrides will use overrides or random
+	return StakerConfigForNetwork(nil, overrides)
 }
 
-func StakerConfigForNetwork(pkg Pkg, overrides ClientOverrides) (StakerConfig, []string) {
+func StakerConfigForNetwork(pkg *Pkg, overrides ClientOverrides) (StakerConfig, []string) {
 	// Only hoodi network is supported
 	network := "hoodi"
 	web3signer := "web3signer-hoodi.dnp.dappnode.eth"
@@ -102,13 +102,15 @@ func StakerConfigForNetwork(pkg Pkg, overrides ClientOverrides) (StakerConfig, [
 // 1. If pkg matches an execution/consensus client, use it (overriding any flag/env with warning)
 // 2. Otherwise, use the override if provided
 // 3. Otherwise, pick a random client
-func resolveClientsWithOverrides(pkg Pkg, overrides ClientOverrides, execClients, consClients []string) ClientOverrideResult {
+func resolveClientsWithOverrides(pkg *Pkg, overrides ClientOverrides, execClients, consClients []string) ClientOverrideResult {
 	result := ClientOverrideResult{}
 
-	// Check if pkg is an execution client
-	pkgMatchedExec := matchClient(pkg.DnpName, execClients)
-	// Check if pkg is a consensus client
-	pkgMatchedCons := matchClient(pkg.DnpName, consClients)
+	// Check if pkg is an execution or consensus client (only if pkg is not nil)
+	var pkgMatchedExec, pkgMatchedCons string
+	if pkg != nil {
+		pkgMatchedExec = matchClient(pkg.DnpName, execClients)
+		pkgMatchedCons = matchClient(pkg.DnpName, consClients)
+	}
 
 	// Resolve execution client
 	if pkgMatchedExec != "" {
