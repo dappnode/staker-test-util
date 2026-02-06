@@ -53,7 +53,7 @@ func main() {
 		if err != nil {
 			logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
 		}
-		stakerConfig, warnings = domain.StakerConfigForNetwork(pkg, overrides)
+		stakerConfig, warnings = domain.StakerConfigForNetwork(&pkg, overrides)
 	} else {
 		// No IPFS hash: use overrides only (only valid in sync mode)
 		logger.InfoWithPrefix(logPrefix, "No IPFS hash provided: configuring staker from EXECUTION_CLIENT and CONSENSUS_CLIENT")
