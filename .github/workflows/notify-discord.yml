@@ -15,6 +15,7 @@ on:
 
 jobs:
   notify:
+    if: inputs.result != 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
