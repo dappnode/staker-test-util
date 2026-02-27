@@ -36,11 +36,10 @@ type ClientOverrides struct {
 	ConsensusClient string // Short name like "prysm", "teku", etc.
 }
 
-// ClientOverrideResult holds the result of applying overrides with any warnings
+// ClientOverrideResult holds the resolved execution and consensus clients.
 type ClientOverrideResult struct {
 	ExecutionDnpName string
 	ConsensusDnpName string
-	Warnings         []string
 }
 
 const dappmanagerURL = "http://dappmanager.dappnode:7000"
@@ -54,12 +53,12 @@ var (
 // StakerConfigFromOverrides creates a StakerConfig using only the override values.
 // Used in sync mode where no IPFS hash/package is provided.
 // If overrides are empty, random clients will be selected.
-func StakerConfigFromOverrides(overrides ClientOverrides) (StakerConfig, []string) {
+func StakerConfigFromOverrides(overrides ClientOverrides) (StakerConfig, error) {
 	// Pass nil so resolveClientsWithOverrides will use overrides or random
 	return StakerConfigForNetwork(nil, overrides)
 }
 
-func StakerConfigForNetwork(pkg *Pkg, overrides ClientOverrides) (StakerConfig, []string) {
+func StakerConfigForNetwork(pkg *Pkg, overrides ClientOverrides) (StakerConfig, error) {
 	// Only hoodi network is supported
 	network := "hoodi"
 	web3signer := "web3signer-hoodi.dnp.dappnode.eth"
@@ -73,7 +72,10 @@ func StakerConfigForNetwork(pkg *Pkg, overrides ClientOverrides) (StakerConfig, 
 	}
 
 	// Resolve execution and consensus clients with override logic
-	result := resolveClientsWithOverrides(pkg, overrides, hoodiExecClients, hoodiConsClients)
+	result, err := resolveClientsWithOverrides(pkg, overrides, hoodiExecClients, hoodiConsClients)
+	if err != nil {
+		return StakerConfig{}, err
+	}
 
 	ecDnpName := result.ExecutionDnpName
 	ccDnpName := result.ConsensusDnpName
@@ -95,14 +97,14 @@ func StakerConfigForNetwork(pkg *Pkg, overrides ClientOverrides) (StakerConfig, 
 		ValidatorContainerName:    containerName("validator", ccDnpName),
 		ExecutionContainerName:    containerName(serviceName, ecDnpName),
 		ExecutionVolumeTargetPath: fmt.Sprintf("/var/lib/docker/volumes/%s/_data", volumeName),
-	}, result.Warnings
+	}, nil
 }
 
 // resolveClientsWithOverrides determines execution and consensus clients based on:
-// 1. If pkg matches an execution/consensus client, use it (overriding any flag/env with warning)
+// 1. If pkg matches an execution/consensus client, use it (and fail on conflicting flag/env)
 // 2. Otherwise, use the override if provided
 // 3. Otherwise, pick a random client
-func resolveClientsWithOverrides(pkg *Pkg, overrides ClientOverrides, execClients, consClients []string) ClientOverrideResult {
+func resolveClientsWithOverrides(pkg *Pkg, overrides ClientOverrides, execClients, consClients []string) (ClientOverrideResult, error) {
 	result := ClientOverrideResult{}
 
 	// Check if pkg is an execution or consensus client (only if pkg is not nil)
@@ -114,11 +116,13 @@ func resolveClientsWithOverrides(pkg *Pkg, overrides ClientOverrides, execClient
 
 	// Resolve execution client
 	if pkgMatchedExec != "" {
-		// Pkg is an execution client - use it
+		// Pkg is an execution client - conflicting override is an error
 		if overrides.ExecutionClient != "" {
-			result.Warnings = append(result.Warnings,
-				fmt.Sprintf("Package '%s' is an execution client; ignoring --execution-client flag '%s'",
-					pkg.DnpName, overrides.ExecutionClient))
+			return ClientOverrideResult{}, fmt.Errorf(
+				"package '%s' is an execution client; conflicting --execution-client '%s'",
+				pkg.DnpName,
+				overrides.ExecutionClient,
+			)
 		}
 		result.ExecutionDnpName = pkgMatchedExec
 	} else if overrides.ExecutionClient != "" {
@@ -127,9 +131,7 @@ func resolveClientsWithOverrides(pkg *Pkg, overrides ClientOverrides, execClient
 		if matched != "" {
 			result.ExecutionDnpName = matched
 		} else {
-			result.Warnings = append(result.Warnings,
-				fmt.Sprintf("Unknown execution client '%s'; using random", overrides.ExecutionClient))
-			result.ExecutionDnpName = randomClient(execClients)
+			return ClientOverrideResult{}, fmt.Errorf("unknown execution client '%s'", overrides.ExecutionClient)
 		}
 	} else {
 		// Pick random
@@ -138,11 +140,13 @@ func resolveClientsWithOverrides(pkg *Pkg, overrides ClientOverrides, execClient
 
 	// Resolve consensus client
 	if pkgMatchedCons != "" {
-		// Pkg is a consensus client - use it
+		// Pkg is a consensus client - conflicting override is an error
 		if overrides.ConsensusClient != "" {
-			result.Warnings = append(result.Warnings,
-				fmt.Sprintf("Package '%s' is a consensus client; ignoring --consensus-client flag '%s'",
-					pkg.DnpName, overrides.ConsensusClient))
+			return ClientOverrideResult{}, fmt.Errorf(
+				"package '%s' is a consensus client; conflicting --consensus-client '%s'",
+				pkg.DnpName,
+				overrides.ConsensusClient,
+			)
 		}
 		result.ConsensusDnpName = pkgMatchedCons
 	} else if overrides.ConsensusClient != "" {
@@ -151,16 +155,21 @@ func resolveClientsWithOverrides(pkg *Pkg, overrides ClientOverrides, execClient
 		if matched != "" {
 			result.ConsensusDnpName = matched
 		} else {
-			result.Warnings = append(result.Warnings,
-				fmt.Sprintf("Unknown consensus client '%s'; using random", overrides.ConsensusClient))
-			result.ConsensusDnpName = randomClient(consClients)
+			return ClientOverrideResult{}, fmt.Errorf("unknown consensus client '%s'", overrides.ConsensusClient)
 		}
 	} else {
 		// Pick random
 		result.ConsensusDnpName = randomClient(consClients)
 	}
 
-	return result
+	if result.ExecutionDnpName == "" {
+		return ClientOverrideResult{}, fmt.Errorf("failed to resolve execution client")
+	}
+	if result.ConsensusDnpName == "" {
+		return ClientOverrideResult{}, fmt.Errorf("failed to resolve consensus client")
+	}
+
+	return result, nil
 }
 
 // matchClient returns the matching client dnpName if found, empty string otherwise
