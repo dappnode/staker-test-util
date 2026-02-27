@@ -48,7 +48,7 @@ const dappmanagerURL = "http://dappmanager.dappnode:7000"
 // hoodi network client lists
 var (
 	hoodiExecClients = []string{"hoodi-reth.dnp.dappnode.eth", "hoodi-geth.dnp.dappnode.eth", "hoodi-besu.dnp.dappnode.eth", "hoodi-erigon.dnp.dappnode.eth", "hoodi-nethermind.dnp.dappnode.eth"}
-	hoodiConsClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth"}
+	hoodiConsClients = []string{"prysm-hoodi.dnp.dappnode.eth", "teku-hoodi.dnp.dappnode.eth", "nimbus-hoodi.dnp.dappnode.eth", "lodestar-hoodi.dnp.dappnode.eth", "lighthouse-hoodi.dnp.dappnode.eth"}
 )
 
 // StakerConfigFromOverrides creates a StakerConfig using only the override values.
