@@ -44,7 +44,6 @@ func main() {
 
 	var pkg domain.Pkg
 	var stakerConfig domain.StakerConfig
-	var warnings []string
 
 	// Fetch package info from IPFS if hash is provided (required for test mode, optional for sync mode)
 	if cfg.IPFSHash != "" {
@@ -53,16 +52,18 @@ func main() {
 		if err != nil {
 			logger.FatalWithPrefix(logPrefix, "Failed to get dnpName from IPFS hash: %v", err)
 		}
-		stakerConfig, warnings = domain.StakerConfigForNetwork(&pkg, overrides)
+		stakerConfig, err = domain.StakerConfigForNetwork(&pkg, overrides)
+		if err != nil {
+			logger.FatalWithPrefix(logPrefix, "Failed to resolve staker config: %v", err)
+		}
 	} else {
 		// No IPFS hash: use overrides only (only valid in sync mode)
 		logger.InfoWithPrefix(logPrefix, "No IPFS hash provided: configuring staker from EXECUTION_CLIENT and CONSENSUS_CLIENT")
-		stakerConfig, warnings = domain.StakerConfigFromOverrides(overrides)
-	}
-
-	// Log any warnings from client resolution
-	for _, warning := range warnings {
-		logger.WarnWithPrefix(logPrefix, "%s", warning)
+		var err error
+		stakerConfig, err = domain.StakerConfigFromOverrides(overrides)
+		if err != nil {
+			logger.FatalWithPrefix(logPrefix, "Failed to resolve staker config: %v", err)
+		}
 	}
 
 	// print the staker config for debugging with each item on a new line

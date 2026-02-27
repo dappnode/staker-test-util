@@ -156,6 +156,7 @@ func (t *ExecutorAdapter) waitForValidatorLiveness(ctx context.Context, report *
 			logger.Error("No validator indexes returned (attempt %d)", i+1)
 		} else {
 			logger.Info("[ValidatorLiveness] Got %d validator indexes (attempt %d)", len(indexes), i+1)
+			logger.Info("[ValidatorLiveness] Validator indexes: %v", indexes)
 			break
 		}
 		if i < maxSlots-1 {
